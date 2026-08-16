@@ -1,18 +1,14 @@
 #!/bin/sh
 # Block commits made directly on protected branches (main).
 
-protected_branches="^(main)$"
+protected_branch="^(main)$"
 
 branch=$(git symbolic-ref --short HEAD 2>/dev/null)
 
-if echo "$branch" | grep -Eq "$protected_branches"; then
+if echo "$branch" | grep -Eq "$protected_branch"; then
 	echo "Direct commits to '$branch' are blocked by the pre-commit hook." >&2
 	echo "Create a feature branch instead: git checkout -b my-feature" >&2
 	exit 1
 fi
 
 exit 0
-
-# ```bash
-# git config core.hooksPath .githooks
-# ```
