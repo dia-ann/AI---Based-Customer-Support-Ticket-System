@@ -1,0 +1,29 @@
+import api from "./api";
+
+// Maps 1:1 to backend/app/api/routes/auth.py
+
+export async function login(email, password) {
+  const { data } = await api.post("/auth/login", { email, password });
+  // Expected shape: { access_token, user: { id, name, email, role } }
+  return data;
+}
+
+export async function register(payload) {
+  // payload: { name, email, password }
+  const { data } = await api.post("/auth/register", payload);
+  return data;
+}
+
+export async function logout() {
+  try {
+    await api.post("/auth/logout");
+  } finally {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("user");
+  }
+}
+
+export async function fetchCurrentUser() {
+  const { data } = await api.get("/auth/me");
+  return data;
+}
