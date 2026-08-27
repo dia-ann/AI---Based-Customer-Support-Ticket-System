@@ -10,7 +10,11 @@ export default function Login() {
   const { login } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ email: "", password: "", remember: false });
+  const [form, setForm] = useState({
+    email: "",
+    password: "",
+    remember: false,
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -20,10 +24,17 @@ export default function Login() {
     try {
       const user = await login(form.email, form.password);
       const dest =
-        user.role === "admin" ? "/admin/analytics" : user.role === "agent" ? "/agent/dashboard" : "/tickets";
+        user.role === "admin"
+          ? "/admin/analytics"
+          : user.role === "agent"
+            ? "/agent/dashboard"
+            : "/tickets";
       navigate(dest);
     } catch (err) {
-      showToast(err.response?.data?.detail || "Invalid email or password", "error");
+      showToast(
+        err.response?.data?.detail || "Invalid email or password",
+        "error",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -48,7 +59,9 @@ export default function Login() {
             <h1 className="text-2xl font-bold text-white">
               Desk<span className="text-accent">wise</span>
             </h1>
-            <p className="mt-1 text-sm text-gray-500">AI-Powered Customer Support Ticket System</p>
+            <p className="mt-1 text-sm text-gray-500">
+              AI-Powered Customer Support Ticket System
+            </p>
 
             <div className="my-6 h-0.5 w-10 bg-accent" />
 
@@ -81,7 +94,9 @@ export default function Login() {
         {/* Right panel — form */}
         <div className="p-8 sm:p-10">
           <h2 className="text-xl font-bold text-white">Welcome Back 👋</h2>
-          <p className="mt-1 text-sm text-gray-500">Sign in to continue to your dashboard</p>
+          <p className="mt-1 text-sm text-gray-500">
+            Sign in to continue to your dashboard
+          </p>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             <div>
@@ -112,7 +127,9 @@ export default function Login() {
                   required
                   placeholder="Enter your password"
                   value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, password: e.target.value })
+                  }
                   className="w-full rounded-lg border border-surface-border bg-surface-bg py-2.5 pl-10 pr-10 text-sm text-gray-200 placeholder:text-gray-600 focus:border-accent focus:outline-none"
                 />
                 <button
@@ -121,12 +138,16 @@ export default function Login() {
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
                 </button>
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-sm">
+            {/* <div className="flex items-center justify-between text-sm">
               <label className="flex items-center gap-2 text-gray-400">
                 <input
                   type="checkbox"
@@ -139,7 +160,7 @@ export default function Login() {
               <Link to="/forgot-password" className="font-medium text-accent hover:text-accent-hover">
                 Forgot password?
               </Link>
-            </div>
+            </div> */}
 
             <button
               type="submit"
@@ -149,13 +170,13 @@ export default function Login() {
               {submitting ? "Signing in…" : "Sign In →"}
             </button>
 
-            <div className="flex items-center gap-3 py-1">
+            {/* <div className="flex items-center gap-3 py-1">
               <div className="h-px flex-1 bg-surface-border" />
               <span className="text-xs text-gray-500">OR</span>
               <div className="h-px flex-1 bg-surface-border" />
-            </div>
+            </div> */}
 
-            <button
+            {/* <button
               type="button"
               onClick={handleGoogleSignIn}
               className="flex w-full items-center justify-center gap-2 rounded-lg border border-surface-border bg-surface-hover py-2.5 text-sm font-medium text-gray-200 hover:bg-surface-border"
@@ -167,11 +188,14 @@ export default function Login() {
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1a11 11 0 00-9.82 6.05l3.66 2.85C6.71 7.31 9.14 5.38 12 5.38z" />
               </svg>
               Sign in with Google
-            </button>
+            </button> */}
 
             <p className="pt-1 text-center text-sm text-gray-500">
               Don't have an account?{" "}
-              <Link to="/register" className="font-medium text-accent hover:text-accent-hover">
+              <Link
+                to="/signup"
+                className="font-medium text-accent hover:text-accent-hover"
+              >
                 Create one
               </Link>
             </p>

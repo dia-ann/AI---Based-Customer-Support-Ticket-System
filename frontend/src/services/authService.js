@@ -1,7 +1,5 @@
 import api from "./api";
 
-// Maps 1:1 to backend/app/api/routes/auth.py
-
 export async function login(email, password) {
   const { data } = await api.post("/auth/login", { email, password });
   // Expected shape: { access_token, user: { id, name, email, role } }
@@ -10,7 +8,7 @@ export async function login(email, password) {
 
 export async function register(payload) {
   // payload: { name, email, password }
-  const { data } = await api.post("/auth/register", payload);
+  const { data } = await api.post("/auth/signup", payload);
   return data;
 }
 
