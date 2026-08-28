@@ -5,7 +5,7 @@ import Logo from "../components/common/Logo";
 import * as authService from "../services/authService";
 import { useToast } from "../components/common/Toast";
 
-export default function Register() {
+export default function Signup() {
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [form, setForm] = useState({ name: "", email: "", password: "" });

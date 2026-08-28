@@ -1,16 +1,27 @@
 import api from "./api";
 
-// Maps to backend/app/api/routes/tickets.py and agents.py
+function cleanParams(params = {}) {
+  return Object.fromEntries(
+    Object.entries(params).filter(([, value]) => value !== "" && value !== null && value !== undefined)
+  );
+}
 
 // --- Customer-facing ---
 export async function createTicket(payload) {
-  // payload: { subject, description, category_id?, attachments? }
-  const { data } = await api.post("/tickets", payload);
+  const body = {
+    subject: payload.subject,
+    body_redacted: payload.body_redacted ?? payload.description,
+    category_id: payload.category_id || null,
+    department_id: payload.department_id || null,
+    priority: payload.priority || null,
+  };
+
+  const { data } = await api.post("/tickets/", body);
   return data;
 }
 
 export async function getMyTickets(params = {}) {
-  const { data } = await api.get("/tickets/mine", { params });
+  const { data } = await api.get("/tickets/", { params: cleanParams(params) });
   return data;
 }
 
@@ -20,43 +31,52 @@ export async function getTicketById(ticketId) {
 }
 
 export async function addCustomerReply(ticketId, message) {
-  const { data } = await api.post(`/tickets/${ticketId}/messages`, { message });
+  const { data } = await api.post("/replies/", {
+    ticket_id: ticketId,
+    body: message,
+    is_auto_reply: false,
+  });
   return data;
 }
 
 // --- Agent-facing ---
 export async function getQueue(params = {}) {
-  // params: { status, priority, category_id, assigned_to_me }
-  const { data } = await api.get("/agents/queue", { params });
+  const { data } = await api.get("/tickets/", { params: cleanParams(params) });
   return data;
 }
 
 export async function assignTicket(ticketId, agentId) {
-  const { data } = await api.patch(`/agents/tickets/${ticketId}/assign`, { agent_id: agentId });
-  return data;
-}
-
-export async function updateTicketStatus(ticketId, status) {
-  const { data } = await api.patch(`/agents/tickets/${ticketId}/status`, { status });
-  return data;
-}
-
-export async function sendAgentReply(ticketId, message, isInternalNote = false) {
-  const { data } = await api.post(`/agents/tickets/${ticketId}/reply`, {
-    message,
-    is_internal_note: isInternalNote,
+  const { data } = await api.put(`/tickets/${ticketId}`, {
+    assigned_agent_id: agentId,
   });
   return data;
 }
 
-export async function getSuggestedReply(ticketId) {
-  // Calls the AI service (backend/app/ai/suggest_reply.py) via the API layer
-  const { data } = await api.get(`/agents/tickets/${ticketId}/suggest-reply`);
+export async function updateTicketStatus(ticketId, status) {
+  const { data } = await api.put(`/tickets/${ticketId}`, { status });
   return data;
 }
 
-// --- Shared ---
-export async function getTicketEvents(ticketId) {
-  const { data } = await api.get(`/tickets/${ticketId}/events`);
+export async function sendAgentReply(ticketId, message) {
+  const { data } = await api.post("/replies/", {
+    ticket_id: ticketId,
+    body: message,
+    is_auto_reply: false,
+  });
   return data;
+}
+
+export async function getTicketReplies(ticketId) {
+  const { data } = await api.get(`/replies/ticket/${ticketId}`);
+  return data;
+}
+
+// Backend endpoint not available yet.
+export async function getSuggestedReply() {
+  return { suggestion: "" };
+}
+
+// Backend endpoint not available yet.
+export async function getTicketEvents() {
+  return [];
 }
