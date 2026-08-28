@@ -10,15 +10,15 @@ export default function MyTickets() {
   if (loading) return <Loader fullScreen />;
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8">
+    <div className="mx-auto max-w-3xl px-4 py-8 bg-surface-bg">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">My Tickets</h1>
+        <h1 className="text-xl font-semibold text-white">My Tickets</h1>
         <Link to="/tickets/new">
           <Button>+ New Ticket</Button>
         </Link>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-red-400">{error}</p>}
       {!error && !tickets.length && (
         <p className="text-sm text-gray-500">You haven't raised any tickets yet.</p>
       )}

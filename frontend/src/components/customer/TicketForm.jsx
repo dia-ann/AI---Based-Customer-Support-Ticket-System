@@ -28,28 +28,28 @@ export default function TicketForm({ onCreated }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border bg-white p-6">
+    <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border border-surface-border bg-surface-card p-6">
       <div>
-        <label className="mb-1 block text-sm font-medium text-gray-700">Subject</label>
+        <label className="mb-1 block text-sm font-medium text-gray-300">Subject</label>
         <input
           name="subject"
           value={form.subject}
           onChange={handleChange}
           required
-          className="w-full rounded-lg border px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+          className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm text-gray-200 placeholder:text-gray-600 focus:border-accent focus:outline-none"
           placeholder="Briefly describe the issue"
         />
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium text-gray-700">Description</label>
+        <label className="mb-1 block text-sm font-medium text-gray-300">Description</label>
         <textarea
           name="description"
           value={form.description}
           onChange={handleChange}
           required
           rows={5}
-          className="w-full rounded-lg border px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+          className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm text-gray-200 placeholder:text-gray-600 focus:border-accent focus:outline-none"
           placeholder="Give as much detail as you can — the AI classifier uses this to route your ticket"
         />
       </div>
