@@ -37,13 +37,13 @@ export default function ReplyBox({ ticketId, onSent }) {
   }
 
   return (
-    <div className="space-y-3 rounded-xl border bg-white p-4">
+    <div className="space-y-3 rounded-xl border border-surface-border bg-surface-card p-4">
       <textarea
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         rows={4}
         placeholder="Write a reply to the customer…"
-        className="w-full rounded-lg border px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+        className="w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm text-gray-200 placeholder:text-gray-600 focus:border-accent focus:outline-none"
       />
 
       <div className="flex items-center justify-between">

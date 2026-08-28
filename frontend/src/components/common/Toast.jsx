@@ -6,7 +6,7 @@ const ToastContext = createContext(null);
 const STYLES = {
   success: "bg-green-600",
   error: "bg-red-600",
-  info: "bg-gray-800",
+  info: "bg-surface-card border border-surface-border",
 };
 
 export function ToastProvider({ children }) {

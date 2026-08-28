@@ -10,7 +10,7 @@ export default function TicketQueue({ tickets, loading }) {
 
   return (
     <table className="w-full text-left text-sm">
-      <thead className="border-b text-xs uppercase text-gray-500">
+      <thead className="border-b border-surface-border text-xs uppercase text-gray-500">
         <tr>
           <th className="py-2">Subject</th>
           <th className="py-2">Customer</th>
@@ -22,14 +22,14 @@ export default function TicketQueue({ tickets, loading }) {
       </thead>
       <tbody>
         {tickets.map((t) => (
-          <tr key={t.id} className="border-b last:border-0 hover:bg-gray-50">
+          <tr key={t.id} className="border-b border-surface-border last:border-0 hover:bg-surface-hover">
             <td className="py-3">
-              <Link to={`/agent/tickets/${t.id}`} className="font-medium text-brand-700 hover:underline">
+              <Link to={`/agent/tickets/${t.id}`} className="font-medium text-accent hover:underline">
                 {t.subject}
               </Link>
             </td>
-            <td className="py-3 text-gray-600">{t.customer_name}</td>
-            <td className="py-3 capitalize">{t.priority}</td>
+            <td className="py-3 text-gray-400">{t.customer_name}</td>
+            <td className="py-3 capitalize text-gray-300">{t.priority}</td>
             <td className="py-3">
               <span
                 className={clsx(

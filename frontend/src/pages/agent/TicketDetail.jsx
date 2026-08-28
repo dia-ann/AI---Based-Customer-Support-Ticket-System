@@ -18,10 +18,10 @@ export default function TicketDetail() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8">
+    <div className="mx-auto max-w-3xl px-4 py-8 bg-surface-bg">
       <div className="mb-4 flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-semibold">{ticket.subject}</h1>
+          <h1 className="text-xl font-semibold text-white">{ticket.subject}</h1>
           <p className="text-sm text-gray-500">
             Ticket #{ticket.id} • {ticket.customer_name}
           </p>
@@ -33,7 +33,7 @@ export default function TicketDetail() {
         <select
           defaultValue={ticket.status}
           onChange={handleStatusChange}
-          className="rounded-lg border px-3 py-1.5 text-sm"
+          className="rounded-lg border border-surface-border bg-surface-bg px-3 py-1.5 text-sm text-gray-200 focus:border-accent focus:outline-none"
         >
           <option value="open">Open</option>
           <option value="in_progress">In Progress</option>
@@ -43,14 +43,14 @@ export default function TicketDetail() {
         <span className="text-xs text-gray-400 capitalize">Priority: {ticket.priority}</span>
       </div>
 
-      <div className="mb-6 space-y-3 rounded-xl border bg-white p-4">
+      <div className="mb-6 space-y-3 rounded-xl border border-surface-border bg-surface-card p-4">
         {ticket.messages?.map((m) => (
-          <div key={m.id} className={m.is_internal_note ? "rounded-lg bg-amber-50 p-3" : ""}>
+          <div key={m.id} className={m.is_internal_note ? "rounded-lg bg-accent/10 border border-accent/30 p-3" : ""}>
             <p className="text-xs font-medium text-gray-500">
               {m.author_name} • {formatDateTime(m.created_at)}
               {m.is_internal_note && " • internal note"}
             </p>
-            <p className="mt-1 text-sm">{m.message}</p>
+            <p className="mt-1 text-sm text-gray-200">{m.message}</p>
           </div>
         ))}
       </div>

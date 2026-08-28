@@ -2,10 +2,10 @@ import clsx from "clsx";
 import { useSLA } from "../../hooks/useSLA";
 
 const BADGE_STYLES = {
-  ok: "bg-green-100 text-green-700",
-  "at-risk": "bg-amber-100 text-amber-700",
-  breached: "bg-red-100 text-red-700",
-  none: "bg-gray-100 text-gray-500",
+  ok: "bg-green-500/15 text-green-400",
+  "at-risk": "bg-amber-500/15 text-amber-400",
+  breached: "bg-red-500/15 text-red-400",
+  none: "bg-surface-hover text-gray-500",
 };
 
 export default function SLAWatcher({ dueAt }) {

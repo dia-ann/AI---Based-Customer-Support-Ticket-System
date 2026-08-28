@@ -1,10 +1,10 @@
 import clsx from "clsx";
 
 const VARIANTS = {
-  primary: "bg-brand-600 text-white hover:bg-brand-700 disabled:bg-brand-300",
-  secondary: "bg-gray-100 text-gray-800 hover:bg-gray-200",
+  primary: "bg-accent text-black hover:bg-accent-hover disabled:opacity-60",
+  secondary: "bg-surface-hover text-gray-200 hover:bg-surface-border",
   danger: "bg-red-600 text-white hover:bg-red-700",
-  ghost: "bg-transparent text-brand-600 hover:bg-brand-50",
+  ghost: "bg-transparent text-accent hover:bg-surface-hover",
 };
 
 export default function Button({

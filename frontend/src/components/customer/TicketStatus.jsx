@@ -4,10 +4,10 @@ import { formatRelativeTime } from "../../utils/formatters";
 
 export default function TicketStatus({ ticket }) {
   return (
-    <div className="rounded-xl border bg-white p-5">
+    <div className="rounded-xl border border-surface-border bg-surface-card p-5">
       <div className="flex items-start justify-between">
         <div>
-          <h3 className="font-semibold">{ticket.subject}</h3>
+          <h3 className="font-semibold text-white">{ticket.subject}</h3>
           <p className="mt-1 text-sm text-gray-500">
             Ticket #{ticket.id} • Opened {formatRelativeTime(ticket.created_at)}
           </p>
@@ -23,8 +23,8 @@ export default function TicketStatus({ ticket }) {
       </div>
 
       {ticket.assigned_agent_name && (
-        <p className="mt-3 text-sm text-gray-600">
-          Handled by <span className="font-medium">{ticket.assigned_agent_name}</span>
+        <p className="mt-3 text-sm text-gray-400">
+          Handled by <span className="font-medium text-gray-300">{ticket.assigned_agent_name}</span>
         </p>
       )}
 
