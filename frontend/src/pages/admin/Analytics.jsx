@@ -1,104 +1,88 @@
-import { useEffect, useState } from "react";
-import * as adminService from "../../services/adminService";
-import Loader from "../../components/common/Loader";
-import RadialProgress from "../../components/common/RadialProgress";
-
-function TrendBadge({ value }) {
-  if (value === undefined || value === null) return null;
-  const positive = value >= 0;
-  return (
-    <span className={positive ? "text-xs font-medium text-green-400" : "text-xs font-medium text-red-400"}>
-      {positive ? "+" : ""}
-      {value}%
-    </span>
-  );
-}
-
-function KpiCard({ label, value, trend, valueClassName }) {
-  return (
-    <div className="rounded-xl border border-surface-border bg-surface-card p-5">
-      <div className="flex items-center justify-between">
-        <p className="text-xs uppercase tracking-wide text-gray-500">{label}</p>
-        <TrendBadge value={trend} />
-      </div>
-      <p className={`mt-3 text-2xl font-semibold ${valueClassName || "text-white"}`}>{value}</p>
-    </div>
-  );
-}
-
-function CategoryBar({ name, count, max }) {
-  const pct = max ? Math.round((count / max) * 100) : 0;
-  return (
-    <div>
-      <div className="mb-1.5 flex items-center justify-between text-sm">
-        <span className="text-gray-300">{name}</span>
-        <span className="text-gray-500">{count}</span>
-      </div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-border">
-        <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
-      </div>
-    </div>
-  );
-}
-
 export default function Analytics() {
-  const [stats, setStats] = useState(null);
-
-  useEffect(() => {
-    adminService.getAnalyticsOverview().then(setStats);
-  }, []);
-
-  if (!stats) return <Loader fullScreen />;
-
-  const categories = stats.tickets_by_category || [];
-  const maxCategoryCount = Math.max(...categories.map((c) => c.count), 1);
-
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-white">Analytics Dashboard</h1>
-        <p className="text-sm text-gray-500">Track performance, SLA and team productivity.</p>
+    <div className="min-h-screen bg-[#0a0c10] text-white p-8">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-[22px] font-bold">Analytics</h1>
+        <p className="text-[13px] text-[#9ca3af] mt-1">Track your support performance and ticket trends.</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <KpiCard label="Total Tickets" value={stats.total_tickets} trend={stats.total_tickets_trend} valueClassName="text-accent" />
-        <KpiCard label="Open / Pending" value={stats.open_count} trend={stats.open_count_trend} valueClassName="text-orange-400" />
-        <KpiCard label="Resolved Today" value={stats.resolved_today} trend={stats.resolved_today_trend} valueClassName="text-green-400" />
-        <KpiCard label="Avg Response" value={stats.avg_response_label} trend={stats.avg_response_trend} valueClassName="text-blue-400" />
+      {/* Top Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-[#181b26] border border-[#232632] rounded-[16px] p-5">
+          <p className="text-[11px] tracking-widest text-[#9ca3af]">TOTAL TICKETS</p>
+          <h2 className="text-[28px] font-bold mt-2">1,284</h2>
+          <p className="text-[12px] text-[#4ade80] mt-1">↑ 12.5% vs last month</p>
+        </div>
+        <div className="bg-[#181b26] border border-[#232632] rounded-[16px] p-5">
+          <p className="text-[11px] tracking-widest text-[#9ca3af]">AVG RESPONSE</p>
+          <h2 className="text-[28px] font-bold mt-2">1h 24m</h2>
+          <p className="text-[12px] text-[#fbbf24] mt-1">↓ 8% faster</p>
+        </div>
+        <div className="bg-[#181b26] border border-[#232632] rounded-[16px] p-5">
+          <p className="text-[11px] tracking-widest text-[#9ca3af]">RESOLUTION RATE</p>
+          <h2 className="text-[28px] font-bold mt-2">94.2%</h2>
+          <p className="text-[12px] text-[#4ade80] mt-1">↑ 3.1%</p>
+        </div>
+        <div className="bg-[#181b26] border border-[#232632] rounded-[16px] p-5">
+          <p className="text-[11px] tracking-widest text-[#9ca3af]">CSAT SCORE</p>
+          <h2 className="text-[28px] font-bold mt-2">4.8/5</h2>
+          <p className="text-[12px] text-[#9ca3af] mt-1">Based on 342 ratings</p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border border-surface-border bg-surface-card p-6">
-          <h2 className="mb-5 text-sm font-semibold text-white">Tickets by Category</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Tickets by Category */}
+        <div className="lg:col-span-2 bg-[#181b26] border border-[#232632] rounded-[16px] p-6">
+          <h3 className="font-semibold text-[15px] mb-6">Tickets by Category</h3>
           <div className="space-y-4">
-            {categories.map((c) => (
-              <CategoryBar key={c.name} name={c.name} count={c.count} max={maxCategoryCount} />
+            {[
+              { name: "Technical Issue", value: 420, percent: 65, color: "bg-[#fbbf24]" },
+              { name: "Billing", value: 180, percent: 35, color: "bg-[#3b82f6]" },
+              { name: "Account Issue", value: 120, percent: 22, color: "bg-[#a78bfa]" },
+              { name: "Feature Request", value: 80, percent: 15, color: "bg-[#34d399]" },
+            ].map((c) => (
+              <div key={c.name}>
+                <div className="flex justify-between text-[13px] mb-1.5">
+                  <span>{c.name}</span>
+                  <span className="text-[#9ca3af]">{c.value} tickets</span>
+                </div>
+                <div className="h-2 bg-[#0f1117] rounded-full overflow-hidden">
+                  <div className={`h-full ${c.color} rounded-full`} style={{ width: `${c.percent}%` }}></div>
+                </div>
+              </div>
             ))}
-            {!categories.length && <p className="text-sm text-gray-500">No ticket data yet.</p>}
           </div>
         </div>
 
-        <div className="rounded-xl border border-surface-border bg-surface-card p-6">
-          <h2 className="mb-5 text-sm font-semibold text-white">SLA Compliance</h2>
-          <div className="flex flex-col items-center gap-5">
-            <RadialProgress percentage={stats.sla_compliance?.overall ?? 0} label="On Time" />
-            <div className="grid w-full grid-cols-3 text-center">
-              <div>
-                <p className="text-lg font-semibold text-accent">{stats.sla_compliance?.response ?? 0}%</p>
-                <p className="text-xs text-gray-500">Response</p>
-              </div>
-              <div>
-                <p className="text-lg font-semibold text-green-400">{stats.sla_compliance?.resolution ?? 0}%</p>
-                <p className="text-xs text-gray-500">Resolution</p>
-              </div>
-              <div>
-                <p className="text-lg font-semibold text-blue-400">
-                  {stats.sla_compliance?.csat != null ? `${stats.sla_compliance.csat}%` : "—"}
-                </p>
-                <p className="text-xs text-gray-500">CSAT</p>
-              </div>
-            </div>
+        {/* Tickets by Status */}
+        <div className="bg-[#181b26] border border-[#232632] rounded-[16px] p-6">
+          <h3 className="font-semibold text-[15px] mb-6">By Status</h3>
+          <div className="flex justify-center my-4">
+            <div className="w-32 h-32 rounded-full border-[8px] border-[#fbbf24] border-r-[#3b82f6] border-b-[#34d399] border-l-[#232632]"></div>
           </div>
+          <div className="space-y-3 mt-6 text-[13px]">
+            <div className="flex justify-between"><span className="flex items-center gap-2"><span className="w-2 h-2 bg-[#fbbf24] rounded-full"></span>Open</span><span>42%</span></div>
+            <div className="flex justify-between"><span className="flex items-center gap-2"><span className="w-2 h-2 bg-[#3b82f6] rounded-full"></span>Resolved</span><span>38%</span></div>
+            <div className="flex justify-between"><span className="flex items-center gap-2"><span className="w-2 h-2 bg-[#34d399] rounded-full"></span>Pending</span><span>20%</span></div>
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Table */}
+      <div className="bg-[#181b26] border border-[#232632] rounded-[16px] p-6 mt-6">
+        <h3 className="font-semibold text-[15px] mb-4">Top Agents Performance</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-[13px]">
+            <thead className="text-[#9ca3af] border-b border-[#232632]">
+              <tr><th className="py-3 font-normal">Agent</th><th className="py-3 font-normal">Tickets Solved</th><th className="py-3 font-normal">Avg Time</th><th className="py-3 font-normal">Rating</th></tr>
+            </thead>
+            <tbody className="text-[#c2c4c8]">
+              <tr className="border-b border-[#232632]"><td className="py-3">Jane Smith</td><td className="py-3">124</td><td className="py-3">1h 12m</td><td className="py-3 text-[#fbbf24]">4.9</td></tr>
+              <tr className="border-b border-[#232632]"><td className="py-3">Mike Johnson</td><td className="py-3">98</td><td className="py-3">1h 45m</td><td className="py-3 text-[#fbbf24]">4.7</td></tr>
+              <tr><td className="py-3">Sarah Williams</td><td className="py-3">86</td><td className="py-3">2h 10m</td><td className="py-3 text-[#fbbf24]">4.6</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

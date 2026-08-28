@@ -20,7 +20,7 @@ export default function Dashboard() {
   const { tickets, loading, refetch } = useTickets("queue", params);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 bg-surface-bg">
+    <div className="min-h-screen w-full bg-surface-bg mx-auto max-w-5xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-xl font-semibold text-white">Ticket Queue</h1>
         <div className="flex gap-2">

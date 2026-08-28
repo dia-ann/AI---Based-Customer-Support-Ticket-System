@@ -18,7 +18,7 @@ export default function TicketDetail() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8 bg-surface-bg">
+    <div className="min-h-screen w-full bg-surface-bg mx-auto max-w-3xl px-4 py-8">
       <div className="mb-4 flex items-start justify-between">
         <div>
           <h1 className="text-xl font-semibold text-white">{ticket.subject}</h1>
