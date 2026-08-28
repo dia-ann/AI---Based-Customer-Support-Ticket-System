@@ -6,7 +6,7 @@ import AdminLayout from "./components/common/AdminLayout";
 import { useAuth } from "./hooks/useAuth";
 
 import Login from "./pages/Login";
-import Signup from "./pages/Signup";
+import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
 import NewTicket from "./pages/customer/NewTicket";
 import MyTickets from "./pages/customer/MyTickets";
@@ -34,7 +34,7 @@ export default function App() {
     <ToastProvider>
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
+        <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
 
         {/* Customer routes */}
