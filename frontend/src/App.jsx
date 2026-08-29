@@ -6,7 +6,7 @@ import AdminLayout from "./components/common/AdminLayout";
 import { useAuth } from "./hooks/useAuth";
 
 import Login from "./pages/Login";
-import Register from "./pages/Register";
+import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
 import NewTicket from "./pages/customer/NewTicket";
 import MyTickets from "./pages/customer/MyTickets";
@@ -34,7 +34,7 @@ export default function App() {
     <ToastProvider>
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+        <Route path="/register" element={<Signup />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
 
         {/* Customer routes */}
@@ -47,6 +47,7 @@ export default function App() {
               </AppLayout>
             }
           />
+
           <Route
             path="/tickets"
             element={
@@ -67,6 +68,7 @@ export default function App() {
               </AppLayout>
             }
           />
+
           <Route
             path="/agent/tickets/:ticketId"
             element={
@@ -87,6 +89,7 @@ export default function App() {
               </AdminLayout>
             }
           />
+
           <Route
             path="/admin/settings"
             element={
@@ -101,6 +104,7 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<HomeRedirect />} />
         </Route>
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </ToastProvider>
