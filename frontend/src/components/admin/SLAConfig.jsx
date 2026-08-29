@@ -17,7 +17,9 @@ export default function SLAConfig() {
   }, []);
 
   function handleChange(id, field, value) {
-    setPolicies((prev) => prev.map((p) => (p.id === id ? { ...p, [field]: value } : p)));
+    setPolicies((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, [field]: value } : p))
+    );
   }
 
   async function handleSave(policy) {
@@ -39,42 +41,69 @@ export default function SLAConfig() {
 
   return (
     <div className="rounded-xl border border-surface-border bg-surface-card p-6">
-      <h2 className="mb-4 text-sm font-semibold text-white">SLA Configuration</h2>
+      <h2 className="mb-5 text-base font-semibold text-white">
+        SLA Configuration
+      </h2>
 
       <div className="space-y-4">
         {policies.map((p) => (
-          <div key={p.id} className="rounded-lg border border-surface-border p-4">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">{p.priority}</p>
-            <div className="grid grid-cols-2 gap-3">
-              <label className="text-xs text-gray-500">
+          <div
+            key={p.id}
+            className="rounded-lg border border-surface-border bg-surface-hover p-4"
+          >
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-accent">
+              {p.priority}
+            </p>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="text-xs text-gray-400">
                 First Response (minutes)
                 <input
                   type="number"
                   value={p.response_minutes}
-                  onChange={(e) => handleChange(p.id, "response_minutes", e.target.value)}
+                  onChange={(e) =>
+                    handleChange(
+                      p.id,
+                      "response_minutes",
+                      e.target.value
+                    )
+                  }
                   className="mt-1 w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm text-gray-200 focus:border-accent focus:outline-none"
                 />
               </label>
-              <label className="text-xs text-gray-500">
+
+              <label className="text-xs text-gray-400">
                 Resolution Time (minutes)
                 <input
                   type="number"
                   value={p.resolution_minutes}
-                  onChange={(e) => handleChange(p.id, "resolution_minutes", e.target.value)}
+                  onChange={(e) =>
+                    handleChange(
+                      p.id,
+                      "resolution_minutes",
+                      e.target.value
+                    )
+                  }
                   className="mt-1 w-full rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm text-gray-200 focus:border-accent focus:outline-none"
                 />
               </label>
             </div>
+
             <button
               onClick={() => handleSave(p)}
               disabled={savingId === p.id}
-              className="mt-3 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-black hover:bg-accent-hover disabled:opacity-50"
+              className="mt-4 rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-black transition-colors hover:bg-accent-hover disabled:opacity-50"
             >
-              {savingId === p.id ? "Saving…" : "Save"}
+              {savingId === p.id ? "Saving…" : "Save Changes"}
             </button>
           </div>
         ))}
-        {!policies.length && <p className="text-sm text-gray-500">No SLA policies configured.</p>}
+
+        {!policies.length && (
+          <p className="text-sm text-gray-500">
+            No SLA policies configured.
+          </p>
+        )}
       </div>
     </div>
   );

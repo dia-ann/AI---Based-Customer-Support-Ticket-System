@@ -45,7 +45,8 @@ export default function UserMgmt() {
   function assignmentLabel(user) {
     if (user.role === "admin") return "Admin";
     if (user.role === "agent" && user.department_id) {
-      return `Agent - ${departmentsById[user.department_id]?.name || "Department"}`;
+      return `Agent - ${departmentsById[user.department_id]?.name || "Department"
+        }`;
     }
     return "Unassigned";
   }
@@ -63,7 +64,9 @@ export default function UserMgmt() {
 
     try {
       const updatedUser = await adminService.updateUserRole(userId, payload);
-      setUsers((prev) => prev.map((u) => (u.id === userId ? updatedUser : u)));
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? updatedUser : u)),
+      );
       showToast("Assignment updated", "success");
     } catch {
       showToast("Failed to update assignment", "error");
@@ -82,8 +85,11 @@ export default function UserMgmt() {
   return (
     <div className="rounded-xl border border-surface-border bg-surface-card p-6">
       <div className="mb-5 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-white">
-          Team Members ({users.length})
+        <h2 className="text-base font-semibold text-white">
+          User Management
+          <span className="ml-2 text-sm font-normal text-gray-500">
+            ({users.length})
+          </span>
         </h2>
       </div>
 
@@ -92,61 +98,86 @@ export default function UserMgmt() {
           value={inviteEmail}
           onChange={(e) => setInviteEmail(e.target.value)}
           placeholder="Enter email to invite"
-          className="flex-1 rounded-lg border border-surface-border bg-surface-bg px-3 py-2 text-sm text-gray-200 placeholder:text-gray-600 focus:border-accent focus:outline-none"
+          className="flex-1 rounded-lg border border-surface-border bg-surface-bg px-3 py-2.5 text-sm text-gray-200 placeholder:text-gray-600 focus:border-accent focus:outline-none"
         />
+
         <button
           type="submit"
-          className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-black hover:bg-accent-hover"
+          className="rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-accent-hover"
         >
-          Invite
+          + Invite
         </button>
       </form>
 
-      <div className="divide-y divide-surface-border">
-        {users.map((u) => (
-          <div key={u.id} className="flex items-center justify-between py-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-200">
-                  {u.name}
-                </span>
-                <span className="rounded bg-surface-hover px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-                  {assignmentLabel(u)}
-                </span>
-              </div>
-              <p className="text-xs text-gray-500">{u.email}</p>
-            </div>
+      <div className="overflow-hidden rounded-lg border border-surface-border">
+        <div className="hidden grid-cols-[1fr_1fr_auto_auto] gap-4 border-b border-surface-border bg-surface-hover px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-gray-500 sm:grid">
+          <span>Name</span>
+          <span>Email</span>
+          <span>Status</span>
+          <span>Assignment</span>
+        </div>
 
-            <div className="flex items-center gap-4">
+        <div className="divide-y divide-surface-border">
+          {users.map((u) => (
+            <div
+              key={u.id}
+              className="grid gap-3 px-4 py-3 transition-colors hover:bg-surface-hover sm:grid-cols-[1fr_1fr_auto_auto] sm:items-center"
+            >
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-200">
+                    {u.name}
+                  </span>
+
+                  <span className="rounded-md border border-surface-border bg-surface-bg px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
+                    {assignmentLabel(u)}
+                  </span>
+                </div>
+
+                <p className="mt-0.5 text-xs text-gray-500 sm:hidden">
+                  {u.email}
+                </p>
+              </div>
+
+              <p className="hidden text-xs text-gray-400 sm:block">{u.email}</p>
+
               <span
                 className={
                   u.is_active === false
-                    ? "text-xs text-gray-500"
-                    : "text-xs text-green-400"
+                    ? "text-xs font-medium text-gray-500"
+                    : "text-xs font-medium text-green-400"
                 }
               >
                 {u.is_active === false ? "Inactive" : "Active"}
               </span>
+
               <select
                 value={assignmentValue(u)}
-                onChange={(e) => handleAssignmentChange(u.id, e.target.value)}
-                className="rounded-lg border border-surface-border bg-surface-bg px-2 py-1 text-xs text-gray-300"
+                onChange={(e) =>
+                  handleAssignmentChange(u.id, e.target.value)
+                }
+                className="rounded-lg border border-surface-border bg-surface-bg px-2.5 py-2 text-xs text-gray-300 focus:border-accent focus:outline-none"
               >
                 <option value="admin">Admin</option>
+
                 {departments.map((department) => (
-                  <option key={department.id} value={`agent:${department.id}`}>
+                  <option
+                    key={department.id}
+                    value={`agent:${department.id}`}
+                  >
                     {department.name}
                   </option>
                 ))}
               </select>
             </div>
-          </div>
-        ))}
-        {!users.length && (
-          <p className="py-3 text-sm text-gray-500">
-            No editable team members yet.
-          </p>
-        )}
+          ))}
+
+          {!users.length && (
+            <p className="px-4 py-5 text-sm text-gray-500">
+              No editable team members yet.
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
