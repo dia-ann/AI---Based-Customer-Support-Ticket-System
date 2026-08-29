@@ -7,24 +7,25 @@ from backend.app.models.category import Category
 from backend.app.models.sla_policy import SLAPolicy
 from backend.app.models.user import User
 from backend.app.models.enums import TicketPriority, UserRole
+from backend.app.models.routing_rule import RoutingRule
 
-DEPARTMENTS = ["IT Support", "Billing", "Sales", "General", "Administration"]
-CATEGORIES = [
-    ("Technical Issue", "Bugs, login problems, outages"),
-    ("Billing Issue", "Payments, invoices, refunds"),
-    ("Feature Request", "New feature suggestions"),
-    ("General Inquiry", "Anything else"),
+DEPARTMENTS = [
+    "Technical Support", "Product Support", "Customer Service", "IT Support",
+    "Billing and Payments", "Returns and Exchanges", "Service Outages and Maintenance",
+    "Sales and Pre-Sales", "Human Resources", "General Inquiry",
 ]
+CATEGORIES = [(name, "") for name in DEPARTMENTS]
+
 SLA_POLICIES = [
     (TicketPriority.low, 480, 4320),
     (TicketPriority.medium, 240, 1440),
     (TicketPriority.high, 60, 480),
-    (TicketPriority.urgent, 15, 120),
+    
 ]
 
 ADMIN_EMAIL = "admin@test.com"
 ADMIN_PASSWORD = "Passw0rd!"
-ADMIN_DEPARTMENT="Administration"
+ADMIN_DEPARTMENT="None"
 
 
 async def seed():
@@ -46,6 +47,16 @@ async def seed():
             exists = await db.execute(select(SLAPolicy).where(SLAPolicy.priority == priority))
             if not exists.scalar_one_or_none():
                 db.add(SLAPolicy(priority=priority, response_minutes=resp, resolution_minutes=resol))
+
+        for name, _ in CATEGORIES:
+            cat = (await db.execute(select(Category).where(Category.name == name))).scalar_one_or_none()
+            dept = (await db.execute(select(Department).where(Department.name == name))).scalar_one_or_none()
+            if cat and dept:
+                exists = (await db.execute(
+                    select(RoutingRule).where(RoutingRule.category_id == cat.id, RoutingRule.department_id == dept.id)
+                )).scalar_one_or_none()
+                if not exists:
+                    db.add(RoutingRule(category_id=cat.id, department_id=dept.id))
 
         await db.commit()
         print("Departments, categories, and SLA policies seeded.")
@@ -71,7 +82,7 @@ async def seed():
                 email=admin_email,
                 password_hash="MANAGED_BY_SUPABASE_AUTH",
                 role=UserRole.admin,
-                department_id=admin_dept.id,
+                department_id=None,
             ))
             await db.commit()
             print(f"Admin user created: {ADMIN_EMAIL} / {ADMIN_PASSWORD} (dept: {ADMIN_DEPARTMENT})")

@@ -11,13 +11,38 @@ from backend.app.schemas.ticket import TicketCreate, TicketUpdate, TicketRead
 from backend.app.crud.base import CRUDBase
 from backend.app.dependencies import get_current_user, require_role
 
+from backend.app.ai.classify_ticket import classify_ticket
+from backend.app.models.category import Category
+from backend.app.models.routing_rule import RoutingRule
+
 router = APIRouter(prefix="/tickets", tags=["Tickets"])
 crud = CRUDBase(Ticket)
 
 @router.post("/", response_model=TicketRead, status_code=201)
 async def create_ticket(payload: TicketCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    data = payload.model_dump()
-    data["customer_id"] = current_user.id
+    ai_result = classify_ticket(payload.subject, payload.body)
+
+    category_row = (await db.execute(
+        select(Category).where(Category.name == ai_result["category"]["label"])
+    )).scalar_one_or_none()
+
+    department_id = None
+    if category_row:
+        routing = (await db.execute(
+            select(RoutingRule).where(RoutingRule.category_id == category_row.id)
+        )).scalar_one_or_none()
+        department_id = routing.department_id if routing else None
+
+    data = {
+        "customer_id": current_user.id,
+        "subject": payload.subject,
+        "body_redacted": ai_result["body_redacted"],
+        "category_id": category_row.id if category_row else None,
+        "department_id": department_id,
+        "priority": ai_result["priority"]["label"],
+        "classification_confidence": ai_result["category"]["confidence"],
+        "status": "human_review" if ai_result["category"]["needs_human_review"] else "open",
+    }
     return await crud.create(db, data)
 
 @router.get("/", response_model=list[TicketRead])
