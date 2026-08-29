@@ -23,6 +23,7 @@ class TicketUpdate(BaseModel):
 class TicketRead(BaseModel):
     id: UUID
     customer_id: UUID
+    customer_email: str | None = None
     category_id: UUID | None
     department_id: UUID | None
     assigned_agent_id: UUID | None
@@ -32,6 +33,7 @@ class TicketRead(BaseModel):
     subject: str
     body_redacted: str
     classification_confidence: Decimal | None
+    sla_due_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
     model_config = ConfigDict(from_attributes=True)
