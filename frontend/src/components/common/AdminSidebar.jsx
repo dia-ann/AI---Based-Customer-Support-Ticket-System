@@ -19,8 +19,12 @@ export default function AdminSidebar() {
           <span className="text-white font-bold text-[18px]">Deskwise</span>
         </div>
         <nav className="space-y-2">
-          <NavLink to="/admin/analytics" className={({ isActive }) => `block px-4 py-2.5 rounded-xl text-[13px] ${isActive ? "bg-[#f2b705] text-black font-medium" : "text-gray-400"}`}>Analytics</NavLink>
-          <NavLink to="/admin/settings" className={({ isActive }) => `block px-4 py-2.5 rounded-xl text-[13px] ${isActive ? "bg-[#f2b705] text-black font-medium" : "text-gray-400"}`}>Settings</NavLink>
+          <NavLink to="/admin/analytics" className={({ isActive }) => `block px-4 py-2.5 rounded-xl text-[13px] ${isActive ? "bg-[#f2b705] text-black font-medium" : "text-gray-400 hover:text-white"}`}>Analytics</NavLink>
+
+          {/* AGENT - ADDED */}
+          <NavLink to="/agent" className={({ isActive }) => `block px-4 py-2.5 rounded-xl text-[13px] ${isActive ? "bg-[#f2b705] text-black font-medium" : "text-gray-400 hover:text-white"}`}>Agent Panel</NavLink>
+
+          <NavLink to="/admin/settings" className={({ isActive }) => `block px-4 py-2.5 rounded-xl text-[13px] ${isActive ? "bg-[#f2b705] text-black font-medium" : "text-gray-400 hover:text-white"}`}>Settings</NavLink>
         </nav>
       </div>
       <div className="p-6 mb-8">
