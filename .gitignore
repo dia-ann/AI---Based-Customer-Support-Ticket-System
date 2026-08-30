@@ -11,6 +11,6 @@ __pycache__/
 venv/
 .venv/
 backend/app/ai/models/
-venv/
-__pycache__/
-*.pyc
+backend/alembic/
+myREADME.md
+.gitignore

@@ -22,6 +22,7 @@ class Reply(Base):
         UUID(as_uuid=True), ForeignKey("users.id")
     )
     is_auto_reply: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_internal_note: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     body: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

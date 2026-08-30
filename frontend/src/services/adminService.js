@@ -10,30 +10,24 @@ export async function updateUserRole(userId, payload) {
   return data;
 }
 
-export async function getDepartments() {
-  const { data } = await api.get("/departments/");
-  return data;
+// Department services
+export function getDepartments() {
+  return api.get("/departments/").then((res) => res.data);
 }
 
-export async function getCategories() {
-  const { data } = await api.get("/categories/");
-  return data;
+export function createDepartment(payload) {
+  return api.post("/departments/", payload).then((res) => res.data);
 }
 
-export async function createCategory(payload) {
-  const { data } = await api.post("/categories/", payload);
-  return data;
+export function updateDepartment(id, payload) {
+  return api.put(`/departments/${id}`, payload).then((res) => res.data);
 }
 
-export async function updateCategory(categoryId, payload) {
-  const { data } = await api.put(`/categories/${categoryId}`, payload);
-  return data;
+export function deleteDepartment(id) {
+  return api.delete(`/departments/${id}`);
 }
 
-export async function deleteCategory(categoryId) {
-  await api.delete(`/categories/${categoryId}`);
-}
-
+// SLA services
 export async function getSLAPolicies() {
   const { data } = await api.get("/sla-policies/");
   return data;
@@ -44,20 +38,12 @@ export async function updateSLAPolicy(policyId, payload) {
   return data;
 }
 
-// Backend analytics endpoint does not exist yet, so keep UI alive.
 export async function getAnalyticsOverview() {
-  const tickets = await api.get("/tickets/").then((res) => res.data).catch(() => []);
+  const { data } = await api.get("/tickets/analytics");
+  return data;
+}
 
-  return {
-    total_tickets: tickets.length,
-    total_tickets_trend: 0,
-    open_count: tickets.filter((t) => ["open", "pending", "in_progress"].includes(t.status)).length,
-    open_count_trend: 0,
-    resolved_today: tickets.filter((t) => t.status === "resolved").length,
-    resolved_today_trend: 0,
-    avg_response_label: "N/A",
-    avg_response_trend: 0,
-    tickets_by_category: [],
-    sla_compliance: { overall: 0, response: 0, resolution: 0, csat: null },
-  };
+export async function inviteUser(email) {
+  const { data } = await api.post("/users/invite", { email });
+  return data;
 }
