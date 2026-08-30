@@ -10,7 +10,7 @@ export async function updateUserRole(userId, payload) {
   return data;
 }
 
-// Depratment services
+// Department services
 export function getDepartments() {
   return api.get("/departments/").then((res) => res.data);
 }
