@@ -1,4 +1,46 @@
+import { useState, useEffect } from "react";
+import * as adminService from "../../services/adminService";
+
 export default function Analytics() {
+  const [analytics, setAnalytics] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadAnalytics() {
+      try {
+        const data = await adminService.getAnalyticsOverview();
+        setAnalytics(data);
+      } catch (err) {
+        console.error("Failed to load analytics data", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadAnalytics();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0a0c10] flex items-center justify-center text-[#9ca3af] text-[13px]">
+        Loading analytics...
+      </div>
+    );
+  }
+
+  if (!analytics) {
+    return (
+      <div className="min-h-screen bg-[#0a0c10] flex items-center justify-center text-red-400 text-[13px]">
+        Failed to load analytics data.
+      </div>
+    );
+  }
+
+  // Calculate resolution rate dynamically
+  const resolvedAndClosed = (analytics.resolved_count || 0) + (analytics.closed_count || 0);
+  const resolutionRate = analytics.total_tickets > 0
+    ? ((resolvedAndClosed / analytics.total_tickets) * 100).toFixed(1)
+    : "0.0";
+
   return (
     <div className="min-h-screen bg-[#0a0c10] text-white p-8">
       {/* Header */}
@@ -11,22 +53,22 @@ export default function Analytics() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-[#181b26] border border-[#232632] rounded-[16px] p-5">
           <p className="text-[11px] tracking-widest text-[#9ca3af]">TOTAL TICKETS</p>
-          <h2 className="text-[28px] font-bold mt-2">1,284</h2>
-          <p className="text-[12px] text-[#4ade80] mt-1">↑ 12.5% vs last month</p>
+          <h2 className="text-[28px] font-bold mt-2">{analytics.total_tickets.toLocaleString()}</h2>
+          <p className="text-[12px] text-[#4ade80] mt-1">↑ {analytics.total_tickets_trend}% vs last month</p>
         </div>
         <div className="bg-[#181b26] border border-[#232632] rounded-[16px] p-5">
           <p className="text-[11px] tracking-widest text-[#9ca3af]">AVG RESPONSE</p>
-          <h2 className="text-[28px] font-bold mt-2">1h 24m</h2>
-          <p className="text-[12px] text-[#fbbf24] mt-1">↓ 8% faster</p>
+          <h2 className="text-[28px] font-bold mt-2">{analytics.avg_response_label}</h2>
+          <p className="text-[12px] text-[#fbbf24] mt-1">↓ {analytics.avg_response_trend}% faster</p>
         </div>
         <div className="bg-[#181b26] border border-[#232632] rounded-[16px] p-5">
           <p className="text-[11px] tracking-widest text-[#9ca3af]">RESOLUTION RATE</p>
-          <h2 className="text-[28px] font-bold mt-2">94.2%</h2>
+          <h2 className="text-[28px] font-bold mt-2">{resolutionRate}%</h2>
           <p className="text-[12px] text-[#4ade80] mt-1">↑ 3.1%</p>
         </div>
         <div className="bg-[#181b26] border border-[#232632] rounded-[16px] p-5">
           <p className="text-[11px] tracking-widest text-[#9ca3af]">CSAT SCORE</p>
-          <h2 className="text-[28px] font-bold mt-2">4.8/5</h2>
+          <h2 className="text-[28px] font-bold mt-2">{analytics.sla_compliance?.csat || "4.8"}/5</h2>
           <p className="text-[12px] text-[#9ca3af] mt-1">Based on 342 ratings</p>
         </div>
       </div>
@@ -36,22 +78,26 @@ export default function Analytics() {
         <div className="lg:col-span-2 bg-[#181b26] border border-[#232632] rounded-[16px] p-6">
           <h3 className="font-semibold text-[15px] mb-6">Tickets by Category</h3>
           <div className="space-y-4">
-            {[
-              { name: "Technical Issue", value: 420, percent: 65, color: "bg-[#fbbf24]" },
-              { name: "Billing", value: 180, percent: 35, color: "bg-[#3b82f6]" },
-              { name: "Account Issue", value: 120, percent: 22, color: "bg-[#a78bfa]" },
-              { name: "Feature Request", value: 80, percent: 15, color: "bg-[#34d399]" },
-            ].map((c) => (
-              <div key={c.name}>
-                <div className="flex justify-between text-[13px] mb-1.5">
-                  <span>{c.name}</span>
-                  <span className="text-[#9ca3af]">{c.value} tickets</span>
-                </div>
-                <div className="h-2 bg-[#0f1117] rounded-full overflow-hidden">
-                  <div className={`h-full ${c.color} rounded-full`} style={{ width: `${c.percent}%` }}></div>
-                </div>
-              </div>
-            ))}
+            {analytics.tickets_by_category?.length === 0 ? (
+              <p className="text-gray-500 text-sm">No ticket data available.</p>
+            ) : (
+              analytics.tickets_by_category.map((c, i) => {
+                const colors = ["bg-[#fbbf24]", "bg-[#3b82f6]", "bg-[#a78bfa]", "bg-[#34d399]"];
+                const color = colors[i % colors.length];
+                const percent = analytics.total_tickets > 0 ? Math.round((c.count / analytics.total_tickets) * 100) : 0;
+                return (
+                  <div key={c.name}>
+                    <div className="flex justify-between text-[13px] mb-1.5">
+                      <span>{c.name}</span>
+                      <span className="text-[#9ca3af]">{c.count} tickets</span>
+                    </div>
+                    <div className="h-2 bg-[#0f1117] rounded-full overflow-hidden">
+                      <div className={`h-full ${color} rounded-full`} style={{ width: `${percent}%` }}></div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
 
@@ -59,12 +105,31 @@ export default function Analytics() {
         <div className="bg-[#181b26] border border-[#232632] rounded-[16px] p-6">
           <h3 className="font-semibold text-[15px] mb-6">By Status</h3>
           <div className="flex justify-center my-4">
-            <div className="w-32 h-32 rounded-full border-[8px] border-[#fbbf24] border-r-[#3b82f6] border-b-[#34d399] border-l-[#232632]"></div>
+            <div className="w-32 h-32 rounded-full border-[8px] border-[#fbbf24] border-r-[#3b82f6] border-b-[#34d399] border-l-[#232632] flex items-center justify-center">
+              <span className="text-[14px] font-bold">{analytics.open_count} Open</span>
+            </div>
           </div>
           <div className="space-y-3 mt-6 text-[13px]">
-            <div className="flex justify-between"><span className="flex items-center gap-2"><span className="w-2 h-2 bg-[#fbbf24] rounded-full"></span>Open</span><span>42%</span></div>
-            <div className="flex justify-between"><span className="flex items-center gap-2"><span className="w-2 h-2 bg-[#3b82f6] rounded-full"></span>Resolved</span><span>38%</span></div>
-            <div className="flex justify-between"><span className="flex items-center gap-2"><span className="w-2 h-2 bg-[#34d399] rounded-full"></span>Pending</span><span>20%</span></div>
+            {analytics.tickets_by_status?.map((s) => {
+              const statusColors = {
+                open: "bg-[#fbbf24]",
+                in_progress: "bg-[#3b82f6]",
+                pending: "bg-[#a78bfa]",
+                resolved: "bg-[#34d399]",
+                closed: "bg-[#6b7280]",
+              };
+              const color = statusColors[s.name] || "bg-gray-400";
+              const percent = analytics.total_tickets > 0 ? Math.round((s.count / analytics.total_tickets) * 100) : 0;
+              return (
+                <div className="flex justify-between" key={s.name}>
+                  <span className="flex items-center gap-2">
+                    <span className={`w-2 h-2 ${color} rounded-full`}></span>
+                    {s.name.replace("_", " ").toUpperCase()}
+                  </span>
+                  <span>{percent}% ({s.count})</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -75,12 +140,30 @@ export default function Analytics() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-[13px]">
             <thead className="text-[#9ca3af] border-b border-[#232632]">
-              <tr><th className="py-3 font-normal">Agent</th><th className="py-3 font-normal">Tickets Solved</th><th className="py-3 font-normal">Avg Time</th><th className="py-3 font-normal">Rating</th></tr>
+              <tr>
+                <th className="py-3 font-normal">Agent</th>
+                <th className="py-3 font-normal">Tickets Solved</th>
+                <th className="py-3 font-normal">Avg Time</th>
+                <th className="py-3 font-normal">Rating</th>
+              </tr>
             </thead>
             <tbody className="text-[#c2c4c8]">
-              <tr className="border-b border-[#232632]"><td className="py-3">Jane Smith</td><td className="py-3">124</td><td className="py-3">1h 12m</td><td className="py-3 text-[#fbbf24]">4.9</td></tr>
-              <tr className="border-b border-[#232632]"><td className="py-3">Mike Johnson</td><td className="py-3">98</td><td className="py-3">1h 45m</td><td className="py-3 text-[#fbbf24]">4.7</td></tr>
-              <tr><td className="py-3">Sarah Williams</td><td className="py-3">86</td><td className="py-3">2h 10m</td><td className="py-3 text-[#fbbf24]">4.6</td></tr>
+              {analytics.agent_performance?.length === 0 ? (
+                <tr>
+                  <td colSpan="4" className="py-4 text-center text-gray-500">
+                    No agent activity recorded yet.
+                  </td>
+                </tr>
+              ) : (
+                analytics.agent_performance.map((agent) => (
+                  <tr key={agent.id} className="border-b border-[#232632]">
+                    <td className="py-3">{agent.name}</td>
+                    <td className="py-3">{agent.solved_count}</td>
+                    <td className="py-3">{agent.avg_time}</td>
+                    <td className="py-3 text-[#fbbf24]">{agent.rating}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

@@ -1,28 +1,8 @@
 import axios from "axios";
-import { MOCK_ROUTES } from "./mockData";
-
-// TEMP: Preview mode — set VITE_PREVIEW_MODE=true in frontend/.env to view
-// every page with instant mock data and zero backend calls. Turn it off
-// (or delete this block + mockData.js) once the real backend is wired up.
-const PREVIEW_MODE = import.meta.env.VITE_PREVIEW_MODE === "true";
-
-function mockAdapter(config) {
-  const method = (config.method || "get").toLowerCase();
-  const url = config.url || "";
-  const match = MOCK_ROUTES.find(([test]) => test(method, url));
-  const data = match ? match[1](config) : {};
-
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({ data, status: 200, statusText: "OK", headers: {}, config });
-    }, 150); // small delay so loading states are visible, not instant-flash
-  });
-}
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
   headers: { "Content-Type": "application/json" },
-  ...(PREVIEW_MODE ? { adapter: mockAdapter } : {}),
 });
 
 // Attach the JWT to every outgoing request, if we have one
