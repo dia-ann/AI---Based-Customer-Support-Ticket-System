@@ -17,7 +17,7 @@ import Settings from "./pages/admin/Settings";
 
 function AppLayout({ children }) {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#0B0D13]">
       <Navbar />
       <main>{children}</main>
     </div>
@@ -29,84 +29,95 @@ function HomeRedirect() {
   return <Navigate to={homeRoute} replace />;
 }
 
+function RoleBasedLayout({ children }) {
+  const { isAdmin } = useAuth();
+  return isAdmin ? (
+    <AdminLayout>{children}</AdminLayout>
+  ) : (
+    <AppLayout>{children}</AppLayout>
+  );
+}
+
 export default function App() {
   return (
-    <ToastProvider>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
+    <div className="bg-gray-900">
+      <ToastProvider>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
 
-        {/* Customer routes */}
-        <Route element={<ProtectedRoute allowedRoles={["customer"]} />}>
-          <Route
-            path="/tickets/new"
-            element={
-              <AppLayout>
-                <NewTicket />
-              </AppLayout>
-            }
-          />
+          {/* Customer routes */}
+          <Route element={<ProtectedRoute allowedRoles={["customer"]} />}>
+            <Route
+              path="/tickets/new"
+              element={
+                <AppLayout>
+                  <NewTicket />
+                </AppLayout>
+              }
+            />
 
-          <Route
-            path="/tickets"
-            element={
-              <AppLayout>
-                <MyTickets />
-              </AppLayout>
-            }
-          />
-        </Route>
+            <Route
+              path="/tickets"
+              element={
+                <AppLayout>
+                  <MyTickets />
+                </AppLayout>
+              }
+            />
+          </Route>
 
-        {/* Agent routes */}
-        <Route element={<ProtectedRoute allowedRoles={["agent", "admin"]} />}>
-          <Route
-            path="/agent/dashboard"
-            element={
-              <AppLayout>
-                <AgentDashboard />
-              </AppLayout>
-            }
-          />
+          {/* Agent routes */}
+          <Route element={<ProtectedRoute allowedRoles={["agent", "admin"]} />}>
+            <Route
+              path="/agent/dashboard"
+              element={
+                <RoleBasedLayout>
+                  <AgentDashboard />
+                </RoleBasedLayout>
+              }
+            />
 
-          <Route
-            path="/agent/tickets/:ticketId"
-            element={
-              <AppLayout>
-                <TicketDetail />
-              </AppLayout>
-            }
-          />
-        </Route>
+            <Route
+              path="/agent/tickets/:ticketId"
+              element={
+                <RoleBasedLayout>
+                  <TicketDetail />
+                </RoleBasedLayout>
+              }
+            />
+          </Route>
 
-        {/* Admin routes */}
-        <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
-          <Route
-            path="/admin/analytics"
-            element={
-              <AdminLayout>
-                <Analytics />
-              </AdminLayout>
-            }
-          />
+          {/* Admin routes */}
+          <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
+            <Route
+              path="/admin/analytics"
+              element={
+                <AdminLayout>
+                  <Analytics />
+                </AdminLayout>
+              }
+            />
 
-          <Route
-            path="/admin/settings"
-            element={
-              <AdminLayout>
-                <Settings />
-              </AdminLayout>
-            }
-          />
-        </Route>
+            <Route
+              path="/admin/settings"
+              element={
+                <AdminLayout>
+                  <Settings />
+                </AdminLayout>
+              }
+            />
+          </Route>
 
-        {/* Fallback: send logged-in users to their home, others to login */}
-        <Route element={<ProtectedRoute />}>
-          <Route path="/" element={<HomeRedirect />} />
-        </Route>
+          {/* Fallback: send logged-in users to their home, others to login */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/" element={<HomeRedirect />} />
+          </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </ToastProvider>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </ToastProvider>
+    </div>
   );
 }
