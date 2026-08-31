@@ -7,24 +7,41 @@ from backend.app.models.category import Category
 from backend.app.models.sla_policy import SLAPolicy
 from backend.app.models.user import User
 from backend.app.models.enums import TicketPriority, UserRole
+from backend.app.models.routing_rule import RoutingRule
 
-DEPARTMENTS = ["IT Support", "Billing", "Sales", "General", "Administration"]
-CATEGORIES = [
-    ("Technical Issue", "Bugs, login problems, outages"),
-    ("Billing Issue", "Payments, invoices, refunds"),
-    ("Feature Request", "New feature suggestions"),
-    ("General Inquiry", "Anything else"),
+DEPARTMENTS = [
+    "Technical Operations",
+    "Billing & Finance",
+    "Customer Experience",
+    "Sales & Growth",
+    "Administration & People",
+    "Product Operations",
+    "Service Reliability",
 ]
+
+# (category_name, department_name) — category_name must exactly match
+# the keys in label_mappings.json so classifier output resolves correctly
+CATEGORIES = [
+    ("Billing and Payments",            "Billing & Finance"),
+    ("Customer Service",                "Customer Experience"),
+    ("General Inquiry",                 "Customer Experience"),
+    ("Human Resources",                 "Administration & People"),
+    ("IT Support",                      "Technical Operations"),
+    ("Product Support",                 "Product Operations"),
+    ("Returns and Exchanges",           "Customer Experience"),
+    ("Sales and Pre-Sales",             "Sales & Growth"),
+    ("Service Outages and Maintenance", "Service Reliability"),
+    ("Technical Support",               "Technical Operations"),
+]
+
 SLA_POLICIES = [
     (TicketPriority.low, 480, 4320),
     (TicketPriority.medium, 240, 1440),
     (TicketPriority.high, 60, 480),
-    (TicketPriority.urgent, 15, 120),
 ]
 
 ADMIN_EMAIL = "admin@test.com"
 ADMIN_PASSWORD = "Passw0rd!"
-ADMIN_DEPARTMENT="Administration"
 
 
 async def seed():
@@ -34,47 +51,73 @@ async def seed():
             exists = await db.execute(select(Department).where(Department.name == name))
             if not exists.scalar_one_or_none():
                 db.add(Department(name=name))
+        await db.commit()
 
         # Categories
-        for name, desc in CATEGORIES:
+        for name, _dept_name in CATEGORIES:
             exists = await db.execute(select(Category).where(Category.name == name))
             if not exists.scalar_one_or_none():
-                db.add(Category(name=name, description=desc))
+                db.add(Category(name=name, description=""))
+        await db.commit()
 
         # SLA Policies
         for priority, resp, resol in SLA_POLICIES:
             exists = await db.execute(select(SLAPolicy).where(SLAPolicy.priority == priority))
             if not exists.scalar_one_or_none():
                 db.add(SLAPolicy(priority=priority, response_minutes=resp, resolution_minutes=resol))
-
         await db.commit()
-        print("Departments, categories, and SLA policies seeded.")
-        
+
+        # Routing rules: category -> department, from the explicit mapping above
+        for cat_name, dept_name in CATEGORIES:
+            cat = (await db.execute(select(Category).where(Category.name == cat_name))).scalar_one_or_none()
+            dept = (await db.execute(select(Department).where(Department.name == dept_name))).scalar_one_or_none()
+            if cat and dept:
+                exists = (await db.execute(
+                    select(RoutingRule).where(
+                        RoutingRule.category_id == cat.id,
+                        RoutingRule.department_id == dept.id,
+                    )
+                )).scalar_one_or_none()
+                if not exists:
+                    db.add(RoutingRule(category_id=cat.id, department_id=dept.id))
+        await db.commit()
+        print("Departments, categories, SLA policies, and routing rules seeded.")
+
+        # Admin user (cross-department — no department_id)
         existing_admin = await db.execute(select(User).where(User.email == ADMIN_EMAIL))
         if not existing_admin.scalar_one_or_none():
-            dept_res = await db.execute(select(Department).where(Department.name == ADMIN_DEPARTMENT))
-            admin_dept = dept_res.scalar_one_or_none()
-            if admin_dept is None:
-                raise RuntimeError(f"Department '{ADMIN_DEPARTMENT}' not found — departments must be seeded first.")
+            try:
+                auth_res = supabase_admin.auth.admin.create_user({
+                    "email": ADMIN_EMAIL,
+                    "password": ADMIN_PASSWORD,
+                    "email_confirm": True,
+                })
+                admin_id = auth_res.user.id
+                admin_email = auth_res.user.email
+            except Exception as e:
+                if "already been registered" in str(e):
+                    # Auth user exists from a previous run — find it and reuse its id
+                    users_list = supabase_admin.auth.admin.list_users()
+                    match = next((u for u in users_list if u.email == ADMIN_EMAIL), None)
+                    if not match:
+                        raise RuntimeError(f"Admin auth user exists but could not be found via list_users(): {e}")
+                    admin_id = match.id
+                    admin_email = match.email
+                else:
+                    raise
 
-            auth_res = supabase_admin.auth.admin.create_user({
-                "email": ADMIN_EMAIL,
-                "password": ADMIN_PASSWORD,
-                "email_confirm": True,
-            })
-            admin_email = auth_res.user.email
             if not admin_email:
-                raise RuntimeError("Supabase did not return an email for the admin user.")
+                raise RuntimeError("Could not resolve an email for the admin user.")
 
             db.add(User(
-                id=auth_res.user.id,
+                id=admin_id,
                 email=admin_email,
                 password_hash="MANAGED_BY_SUPABASE_AUTH",
                 role=UserRole.admin,
-                department_id=admin_dept.id,
+                department_id=None,
             ))
             await db.commit()
-            print(f"Admin user created: {ADMIN_EMAIL} / {ADMIN_PASSWORD} (dept: {ADMIN_DEPARTMENT})")
+            print(f"Admin user created: {ADMIN_EMAIL} / {ADMIN_PASSWORD} (cross-department)")
         else:
             print("Admin user already exists, skipping.")
 

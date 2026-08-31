@@ -14,6 +14,9 @@ from backend.app.schemas.ticket import TicketCreate, TicketUpdate, TicketRead
 from backend.app.crud.base import CRUDBase
 from backend.app.dependencies import get_current_user, require_role
 
+from backend.app.ai.classify_ticket import classify_ticket
+from backend.app.models.routing_rule import RoutingRule
+
 router = APIRouter(prefix="/tickets", tags=["Tickets"])
 crud = CRUDBase(Ticket)
 
@@ -45,162 +48,31 @@ def _ticket_to_read(ticket: Ticket, customer_email: str | None, sla_due_at=None)
 # ── CRUD ─────────────────────────────────────────────────────────────
 
 @router.post("/", response_model=TicketRead, status_code=201)
-async def create_ticket(
-    payload: TicketCreate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    data = payload.model_dump()
-    data["customer_id"] = current_user.id
-    ticket = await crud.create(db, data)
+async def create_ticket(payload: TicketCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    ai_result = classify_ticket(payload.subject, payload.body)
 
-    # Fetch the joined data for the response
-    return _ticket_to_read(ticket, current_user.email)
+    category_row = (await db.execute(
+        select(Category).where(Category.name == ai_result["category"]["label"])
+    )).scalar_one_or_none()
 
+    department_id = None
+    if category_row:
+        routing = (await db.execute(
+            select(RoutingRule).where(RoutingRule.category_id == category_row.id)
+        )).scalar_one_or_none()
+        department_id = routing.department_id if routing else None
 
-@router.get("/analytics")
-async def ticket_analytics(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.admin)),
-):
-    """Compute dashboard analytics from live ticket data."""
-    # Total tickets
-    total_q = await db.execute(select(sa_func.count(Ticket.id)))
-    total_tickets = total_q.scalar() or 0
-
-    # Status counts
-    status_q = await db.execute(
-        select(Ticket.status, sa_func.count(Ticket.id)).group_by(Ticket.status)
-    )
-    status_counts = dict(status_q.all())
-
-    open_count = (
-        status_counts.get(TicketStatus.open, 0)
-        + status_counts.get(TicketStatus.pending, 0)
-        + status_counts.get(TicketStatus.in_progress, 0)
-    )
-    resolved_count = status_counts.get(TicketStatus.resolved, 0)
-    closed_count = status_counts.get(TicketStatus.closed, 0)
-
-    # By category
-    cat_q = await db.execute(
-        select(Category.name, sa_func.count(Ticket.id))
-        .outerjoin(Category, Ticket.category_id == Category.id)
-        .group_by(Category.name)
-    )
-    tickets_by_category = [
-        {"name": name or "Uncategorized", "count": count}
-        for name, count in cat_q.all()
-    ]
-
-    # By priority
-    prio_q = await db.execute(
-        select(Ticket.priority, sa_func.count(Ticket.id)).group_by(Ticket.priority)
-    )
-    tickets_by_priority = [
-        {"name": (p.value if p else "unset"), "count": c}
-        for p, c in prio_q.all()
-    ]
-
-    # SLA compliance (breached vs total that have SLA states)
-    sla_total_q = await db.execute(select(sa_func.count(SLAState.id)))
-    sla_total = sla_total_q.scalar() or 0
-    sla_breached_q = await db.execute(
-        select(sa_func.count(SLAState.id)).where(SLAState.breached == True)
-    )
-    sla_breached = sla_breached_q.scalar() or 0
-    sla_compliance = round((1 - sla_breached / sla_total) * 100, 1) if sla_total > 0 else 100
-
-    # Calculate average response time
-    from backend.app.models.reply import Reply
-    first_reply_cte = (
-        select(
-            Reply.ticket_id,
-            sa_func.min(Reply.created_at).label("first_reply_at")
-        )
-        .join(Ticket, Reply.ticket_id == Ticket.id)
-        .where(Reply.author_id != Ticket.customer_id)
-        .group_by(Reply.ticket_id)
-        .cte("first_replies")
-    )
-    avg_response_q = await db.execute(
-        select(
-            sa_func.avg(
-                extract("epoch", first_reply_cte.c.first_reply_at - Ticket.created_at)
-            )
-        )
-        .join(first_reply_cte, Ticket.id == first_reply_cte.c.ticket_id)
-    )
-    avg_response_seconds = avg_response_q.scalar()
-    avg_response_label = "N/A"
-    if avg_response_seconds is not None:
-        hours = int(avg_response_seconds // 3600)
-        minutes = int((avg_response_seconds % 3600) // 60)
-        if hours > 0:
-            avg_response_label = f"{hours}h {minutes}m"
-        else:
-            avg_response_label = f"{minutes}m"
-
-    # Agent performance: query resolved/closed tickets grouped by assigned agent
-    agent_perf_q = await db.execute(
-        select(
-            User.id,
-            User.email,
-            sa_func.count(Ticket.id).label("solved_count"),
-            sa_func.avg(
-                extract("epoch", Ticket.updated_at - Ticket.created_at)
-            ).label("avg_resolve_seconds")
-        )
-        .join(User, Ticket.assigned_agent_id == User.id)
-        .where(Ticket.status.in_([TicketStatus.resolved, TicketStatus.closed]))
-        .group_by(User.id, User.email)
-        .order_by(sa_func.count(Ticket.id).desc())
-    )
-    agent_performance = []
-    for row in agent_perf_q.all():
-        avg_sec = row.avg_resolve_seconds
-        avg_time_label = "N/A"
-        if avg_sec is not None:
-            hours = int(avg_sec // 3600)
-            minutes = int((avg_sec % 3600) // 60)
-            if hours > 0:
-                avg_time_label = f"{hours}h {minutes}m"
-            else:
-                avg_time_label = f"{minutes}m"
-        
-        agent_performance.append({
-            "id": str(row.id),
-            "email": row.email,
-            "name": row.email.split("@")[0].title().replace(".", " "),
-            "solved_count": row.solved_count,
-            "avg_time": avg_time_label,
-            "rating": 4.8,
-        })
-
-    return {
-        "total_tickets": total_tickets,
-        "total_tickets_trend": 0,
-        "open_count": open_count,
-        "open_count_trend": 0,
-        "resolved_count": resolved_count,
-        "closed_count": closed_count,
-        "avg_response_label": avg_response_label,
-        "avg_response_trend": 0,
-        "tickets_by_category": tickets_by_category,
-        "tickets_by_priority": tickets_by_priority,
-        "tickets_by_status": [
-            {"name": s.value, "count": status_counts.get(s, 0)}
-            for s in TicketStatus
-        ],
-        "sla_compliance": {
-            "overall": sla_compliance,
-            "response": sla_compliance,
-            "resolution": sla_compliance,
-            "csat": None,
-        },
-        "agent_performance": agent_performance,
+    data = {
+        "customer_id": current_user.id,
+        "subject": payload.subject,
+        "body_redacted": ai_result["body_redacted"],
+        "category_id": category_row.id if category_row else None,
+        "department_id": department_id,
+        "priority": ai_result["priority"]["label"],
+        "classification_confidence": ai_result["category"]["confidence"],
+        "status": "human_review" if ai_result["category"]["needs_human_review"] else "open",
     }
-
+    return await crud.create(db, data)
 
 @router.get("/", response_model=list[TicketRead])
 async def list_tickets(

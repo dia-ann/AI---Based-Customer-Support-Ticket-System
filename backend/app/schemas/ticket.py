@@ -6,10 +6,8 @@ from backend.app.models.enums import TicketPriority, TicketSentiment, TicketStat
 
 class TicketCreate(BaseModel):
     subject: str
-    body_redacted: str
-    category_id: UUID | None = None
-    department_id: UUID | None = None
-    priority: TicketPriority | None = None
+    body: str
+    
 
 class TicketUpdate(BaseModel):
     category_id: UUID | None = None

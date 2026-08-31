@@ -9,7 +9,7 @@ class TicketPriority(str, enum.Enum):
     low = "low"
     medium = "medium"
     high = "high"
-    urgent = "urgent"
+    
 
 class TicketSentiment(str, enum.Enum):
     positive = "positive"
