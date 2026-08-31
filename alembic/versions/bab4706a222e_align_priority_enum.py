@@ -20,7 +20,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.execute("DELETE FROM sla_policies WHERE priority = 'urgent'")
+    op.execute("DELETE FROM sla_policies WHERE priority::text = 'urgent'")
     op.execute("ALTER TYPE ticket_priority RENAME TO ticket_priority_old")
     op.execute("CREATE TYPE ticket_priority AS ENUM ('high', 'medium', 'low')")
     op.execute("ALTER TABLE tickets ALTER COLUMN priority TYPE ticket_priority USING priority::text::ticket_priority")

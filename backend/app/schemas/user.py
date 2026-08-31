@@ -16,3 +16,9 @@ class UserUpdate(BaseModel):
     role: UserRole | None = None
     department_id: UUID | None = None
     is_active: bool | None = None
+
+class UserInvite(BaseModel):
+    email: EmailStr
+    department_id: UUID | None = None # Add this line
+
+

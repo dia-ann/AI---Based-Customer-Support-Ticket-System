@@ -7,6 +7,7 @@ export default function Settings() {
   const [slaPolicies, setSlaPolicies] = useState([]);
 
   const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteDepartment, setInviteDepartment] = useState("");
   const [newDepartment, setNewDepartment] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -43,9 +44,13 @@ export default function Settings() {
   const handleInvite = async () => {
     if (!inviteEmail.trim()) return;
     try {
-      const invitedUser = await adminService.inviteUser(inviteEmail);
+      const invitedUser = await adminService.inviteUser(
+        inviteEmail,
+        inviteDepartment || null,
+      );
       setUsers((prev) => [...prev, invitedUser]);
       setInviteEmail("");
+      setInviteDepartment(""); // Reset
       alert(`Successfully sent invitation to ${invitedUser.email}`);
     } catch (err) {
       console.error("Invite user failed", err);
@@ -169,12 +174,6 @@ export default function Settings() {
           <h2 className="font-semibold text-[14px]">
             User Management ({users.length})
           </h2>
-          <button
-            onClick={handleInvite}
-            className="bg-[#fbbf24] text-black text-[12px] px-3 py-1.5 rounded-full font-semibold"
-          >
-            + Invite
-          </button>
         </div>
 
         <div className="flex gap-2 mb-4">
@@ -184,6 +183,19 @@ export default function Settings() {
             placeholder="Enter email to invite"
             className="bg-[#0a0c10] border border-[#232632] rounded-[8px] px-3 py-2 text-[12px] w-[280px] outline-none"
           />
+
+          <select
+            value={inviteDepartment}
+            onChange={(e) => setInviteDepartment(e.target.value)}
+            className="bg-[#0a0c10] border border-[#232632] rounded-[8px] px-3 py-2 text-[12px] outline-none"
+          >
+            <option value="">Select Department (Optional)</option>
+            {departments.map((dept) => (
+              <option key={dept.id} value={dept.id}>
+                {dept.name}
+              </option>
+            ))}
+          </select>
           <button
             onClick={handleInvite}
             className="bg-[#fbbf24] text-black text-[12px] px-4 py-2 rounded-[8px] font-semibold"

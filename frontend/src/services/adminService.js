@@ -43,7 +43,15 @@ export async function getAnalyticsOverview() {
   return data;
 }
 
-export async function inviteUser(email) {
-  const { data } = await api.post("/users/invite", { email });
+// export async function inviteUser(email) {
+//   const { data } = await api.post("/users/invite", { email });
+//   return data;
+// }
+
+export async function inviteUser(email, departmentId = null) {
+  const { data } = await api.post("/users/invite", { 
+    email, 
+    department_id: departmentId 
+  });
   return data;
 }

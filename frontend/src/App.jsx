@@ -1,3 +1,4 @@
+// frontend/src/App.jsx
 import { Navigate, Route, Routes } from "react-router-dom";
 import { ToastProvider } from "./components/common/Toast";
 import ProtectedRoute from "./components/common/ProtectedRoute";
@@ -9,11 +10,13 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
 import NewTicket from "./pages/customer/NewTicket";
+import CustomerTicketDetail from "./pages/customer/TicketDetail";
 import MyTickets from "./pages/customer/MyTickets";
 import AgentDashboard from "./pages/agent/Dashboard";
 import TicketDetail from "./pages/agent/TicketDetail";
 import Analytics from "./pages/admin/Analytics";
 import Settings from "./pages/admin/Settings";
+import AgentPanel from "./pages/admin/AgentPanel"; // <--- ADD THIS IMPORT
 
 function AppLayout({ children }) {
   return (
@@ -54,6 +57,15 @@ export default function App() {
               element={
                 <AppLayout>
                   <NewTicket />
+                </AppLayout>
+              }
+            />
+
+            <Route
+              path="/tickets/:ticketId"
+              element={
+                <AppLayout>
+                  <CustomerTicketDetail />
                 </AppLayout>
               }
             />
@@ -105,6 +117,16 @@ export default function App() {
               element={
                 <AdminLayout>
                   <Settings />
+                </AdminLayout>
+              }
+            />
+
+            {/* ---> ADD NEW TRIAGE ROUTE HERE <--- */}
+            <Route
+              path="/admin/triage"
+              element={
+                <AdminLayout>
+                  <AgentPanel />
                 </AdminLayout>
               }
             />

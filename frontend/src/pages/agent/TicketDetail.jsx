@@ -29,30 +29,22 @@ export default function TicketDetail() {
         <SLAWatcher dueAt={ticket.sla_due_at} />
       </div>
 
-      <div className="mb-4 flex items-center gap-3">
-        <select
-          defaultValue={ticket.status}
-          onChange={handleStatusChange}
-          className="rounded-lg border border-surface-border bg-surface-bg px-3 py-1.5 text-sm text-gray-200 focus:border-accent focus:outline-none"
-        >
-          <option value="open">Open</option>
-          <option value="in_progress">In Progress</option>
-          <option value="resolved">Resolved</option>
-          <option value="closed">Closed</option>
-        </select>
-        <span className="text-xs text-gray-400 capitalize">Priority: {ticket.priority}</span>
-      </div>
-
-      <div className="mb-6 space-y-3 rounded-xl border border-surface-border bg-surface-card p-4">
-        {ticket.messages?.map((m) => (
-          <div key={m.id} className={m.is_internal_note ? "rounded-lg bg-accent/10 border border-accent/30 p-3" : ""}>
-            <p className="text-xs font-medium text-gray-500">
-              {m.author_name} • {formatDateTime(m.created_at)}
-              {m.is_internal_note && " • internal note"}
-            </p>
-            <p className="mt-1 text-sm text-gray-200">{m.message}</p>
-          </div>
-        ))}
+      {/* Ticket details card */}
+      <div className="mb-6 rounded-xl border border-surface-border bg-surface-card p-5">
+        <div className="flex items-center gap-3 text-xs text-gray-500 mb-3">
+          <span>Ticket #{ticket.id?.slice(0, 8)}</span>
+          <span>•</span>
+          <span>{formatDateTime(ticket.created_at)}</span>
+          <span>•</span>
+          <span className="capitalize">Priority: {ticket.priority}</span>
+          <span>•</span>
+          <span className="capitalize">{ticket.status?.replace("_", " ")}</span>
+        </div>
+        <div className="rounded-lg bg-surface-bg p-4">
+          <p className="text-sm text-gray-300 whitespace-pre-wrap">
+            {ticket.body_redacted}
+          </p>
+        </div>
       </div>
 
       <ReplyBox ticketId={ticketId} onSent={refetch} />
