@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useTickets } from "../../hooks/useTickets";
 import TicketStatus from "../../components/customer/TicketStatus";
+// import { Link, useNavigate } from "react-router-dom";
 import Loader from "../../components/common/Loader";
 import Button from "../../components/common/Button";
 
@@ -25,7 +26,10 @@ export default function MyTickets() {
 
       <div className="space-y-3">
         {tickets.map((t) => (
-          <TicketStatus key={t.id} ticket={t} />
+          // <TicketStatus key={t.id} ticket={t} />
+           <Link key={t.id} to={`/tickets/${t.id}`} className="block">
+            <TicketStatus ticket={t} />
+          </Link>
         ))}
       </div>
     </div>

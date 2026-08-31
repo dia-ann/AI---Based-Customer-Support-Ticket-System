@@ -140,3 +140,46 @@ async def delete_user(user_id: UUID, db: AsyncSession = Depends(get_db)):
         raise HTTPException(403, "The seeded Super Admin cannot be changed")
 
     await crud.delete(db, obj)
+
+@router.post("/invite", response_model=UserRead, dependencies=[Depends(require_role(UserRole.admin))])
+async def invite_user(payload: UserInvite, db: AsyncSession = Depends(get_db)):
+    try:
+        res = supabase_admin.auth.admin.invite_user_by_email(payload.email)
+    except Exception as e:
+        # Graceful fallback to direct user creation
+        try:
+            res = supabase_admin.auth.admin.create_user({
+                "email": payload.email,
+                "email_confirm": True,
+                "password": "TemporaryPassword123!"
+            })
+        except Exception as inner_e:
+            raise HTTPException(400, f"Supabase invitation failed: {str(e)} (fallback creation failed: {str(inner_e)})")
+    
+    user = res.user
+    if not user:
+        raise HTTPException(400, "Invitation/Creation failed to return a user.")
+        
+    # Check if the user already exists in the database
+    existing_user = await db.get(User, user.id)
+    if existing_user:
+        return existing_user
+
+    # Add to our local database
+    new_user = User(
+        id=user.id,
+        email=user.email,
+        password_hash="MANAGED_BY_SUPABASE_AUTH",
+        role=UserRole.agent, # Default role for invited user
+        department_id=payload.department_id, # [NEW] Assure department mapping
+        is_active=True
+    )
+    db.add(new_user)
+    try:
+        await db.commit()
+        await db.refresh(new_user)
+    except Exception:
+        await db.rollback()
+        raise HTTPException(409, "Email already registered in local database.")
+        
+    return new_user

@@ -10,7 +10,7 @@ function cleanParams(params = {}) {
 export async function createTicket(payload) {
   const body = {
     subject: payload.subject,
-    body_redacted: payload.body_redacted ?? payload.description,
+    body: payload.body_redacted ?? payload.description,
     category_id: payload.category_id || null,
     department_id: payload.department_id || null,
     priority: payload.priority || null,
