@@ -115,6 +115,7 @@ export default function AgentPanel() {
           tickets={tickets}
           loading={loading}
           renderActions={renderActions}
+          departments={departments}
         />
       </div>
     </div>

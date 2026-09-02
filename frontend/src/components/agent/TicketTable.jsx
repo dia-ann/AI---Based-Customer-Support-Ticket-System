@@ -4,9 +4,11 @@ import { STATUS_COLORS } from "../../utils/constants";
 import { formatRelativeTime } from "../../utils/formatters";
 import SLAWatcher from "./SLAWatcher";
 
-export default function TicketTable({ tickets, loading, renderActions }) {
+export default function TicketTable({ tickets, loading, renderActions, departments = [] }) {
   if (loading) return <p className="text-sm text-gray-500">Loading queue…</p>;
   if (!tickets?.length) return <p className="text-sm text-gray-500">No tickets in this view.</p>;
+
+  const departmentNameById = Object.fromEntries(departments.map((d) => [d.id, d.name]));
 
   return (
     <div className="overflow-x-auto">
@@ -31,7 +33,8 @@ export default function TicketTable({ tickets, loading, renderActions }) {
                 {/* Highlight AI confidence in triage cases */}
                 {t.classification_confidence !== null && (
                   <div className="text-[11px] text-gray-400 mt-1">
-                    AI Category ID: {t.category_id || "None"} (Confidence: {t.classification_confidence})
+                    Department: {departmentNameById[t.department_id] || "Unassigned"} (Confidence: {(t.classification_confidence * 100).toFixed(1)}%)
+                    {t.priority && <> . Priority: <span className="capitalize">{t.priority}</span></>}
                   </div>
                 )}
               </td>
