@@ -9,6 +9,7 @@ import { useAuth } from "./hooks/useAuth";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
+import ChangePassword from "./pages/ChangePassword";
 import NewTicket from "./pages/customer/NewTicket";
 import CustomerTicketDetail from "./pages/customer/TicketDetail";
 import MyTickets from "./pages/customer/MyTickets";
@@ -49,6 +50,12 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+
+          {/* Signed in, but still on the invitation's temporary password.
+              bypassPasswordGate stops this route redirecting to itself. */}
+          <Route element={<ProtectedRoute bypassPasswordGate />}>
+            <Route path="/change-password" element={<ChangePassword />} />
+          </Route>
 
           {/* Customer routes */}
           <Route element={<ProtectedRoute allowedRoles={["customer"]} />}>

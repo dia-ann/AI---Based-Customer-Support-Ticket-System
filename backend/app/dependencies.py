@@ -25,6 +25,16 @@ bearer_scheme = HTTPBearer(
     description="Supabase access_token from POST /auth/login or /auth/refresh.",
 )
 
+# Endpoints an agent on a temporary password may still reach, so the forced
+# password change cannot lock them out of fixing it.
+PASSWORD_CHANGE_EXEMPT_PATHS = {
+    "/auth/change-password",
+    "/auth/forgot-password",
+    "/auth/logout",
+    "/auth/refresh",
+    "/auth/me",
+    "/health",
+}
 
 def _www_authenticate() -> dict[str, str]:
     return {"WWW-Authenticate": "Bearer"}
@@ -105,10 +115,10 @@ async def get_token_claims(token: str = Depends(get_access_token)) -> dict:
 
 
 async def get_current_user(
+    request: Request,
     claims: dict = Depends(get_token_claims),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-
     try:
         user_id = UUID(str(claims["sub"]))
     except (ValueError, TypeError, KeyError):
@@ -120,9 +130,21 @@ async def get_current_user(
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, "User profile not found - complete signup"
         )
+        
     if not user.is_active:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN, "This account has been deactivated."
+        )
+    # Invited agents are still on the admin-generated temporary password: block
+    # everything except the endpoints needed to replace it.
+    if (
+        settings.ENFORCE_PASSWORD_CHANGE
+        and getattr(user, "must_change_password", False)
+        and request.url.path not in PASSWORD_CHANGE_EXEMPT_PATHS
+    ):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Password change required. Call POST /auth/change-password first.",
         )
 
     # Tag Sentry events with who made the request (id only — no PII by default).

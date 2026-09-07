@@ -26,11 +26,12 @@ export function AuthProvider({ children }) {
     const { access_token, refresh_token } = await authService.login(email, password);
     localStorage.setItem("access_token", access_token);
     if (refresh_token) localStorage.setItem("refresh_token", refresh_token);
-    // 2) role lives in public.users, not in the login response -> fetch /auth/me
+    // 2) role + must_change_password live in public.users -> fetch /auth/me
+    //    (/auth/me is exempt from the forced-password-change block)
     const profile = withDisplayName(await authService.fetchCurrentUser());
     localStorage.setItem("user", JSON.stringify(profile));
     setUser(profile);
-    return profile; // Login.jsx reads profile.role from this
+    return profile; // Login.jsx reads profile.role / profile.must_change_password
   }
 
   async function logout() {
@@ -41,6 +42,19 @@ export function AuthProvider({ children }) {
     }
   }
 
+  // Re-pull /auth/me — used right after a password change clears the flag.
+  async function refreshUser() {
+    const profile = withDisplayName(await authService.fetchCurrentUser());
+    localStorage.setItem("user", JSON.stringify(profile));
+    setUser(profile);
+    return profile;
+  }
+
+  async function changePassword(currentPassword, newPassword) {
+    await authService.changePassword(currentPassword, newPassword);
+    return refreshUser();
+  }
+
   function clearSession() {
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
@@ -49,7 +63,18 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        login,
+        logout,
+        refreshUser,
+        changePassword,
+        isAuthenticated: !!user,
+        mustChangePassword: !!user?.must_change_password,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

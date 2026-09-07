@@ -23,6 +23,10 @@ export default function Login() {
     setSubmitting(true);
     try {
       const user = await login(form.email, form.password);
+      if (user.must_change_password) {
+        navigate("/change-password", { replace: true });
+        return;
+      }
       const dest =
         user.role === "admin"
           ? "/admin/analytics"
@@ -38,12 +42,6 @@ export default function Login() {
     } finally {
       setSubmitting(false);
     }
-  }
-
-  function handleGoogleSignIn() {
-    // Not wired to the backend yet — add an OAuth route (e.g. /api/auth/google)
-    // and redirect here once that's built.
-    showToast("Google sign-in isn't connected yet", "info");
   }
 
   return (
@@ -147,20 +145,14 @@ export default function Login() {
               </div>
             </div>
 
-            {/* <div className="flex items-center justify-between text-sm">
-              <label className="flex items-center gap-2 text-gray-400">
-                <input
-                  type="checkbox"
-                  checked={form.remember}
-                  onChange={(e) => setForm({ ...form, remember: e.target.checked })}
-                  className="rounded border-surface-border bg-surface-bg"
-                />
-                Remember me
-              </label>
-              <Link to="/forgot-password" className="font-medium text-accent hover:text-accent-hover">
-                Forgot password?
+            <p className="pt-1 text-center text-sm text-gray-500">
+              <Link
+                to="/forgot-password"
+                className="font-medium text-accent hover:text-accent-hover"
+              >
+                Forgot password
               </Link>
-            </div> */}
+            </p>
 
             <button
               type="submit"
@@ -170,33 +162,14 @@ export default function Login() {
               {submitting ? "Signing in…" : "Sign In →"}
             </button>
 
-            {/* <div className="flex items-center gap-3 py-1">
-              <div className="h-px flex-1 bg-surface-border" />
-              <span className="text-xs text-gray-500">OR</span>
-              <div className="h-px flex-1 bg-surface-border" />
-            </div> */}
-
-            {/* <button
-              type="button"
-              onClick={handleGoogleSignIn}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-surface-border bg-surface-hover py-2.5 text-sm font-medium text-gray-200 hover:bg-surface-border"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.99.66-2.25 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.85A11 11 0 0012 23z" />
-                <path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 010-4.2V7.05H2.18a11 11 0 000 9.9l3.66-2.85z" />
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1a11 11 0 00-9.82 6.05l3.66 2.85C6.71 7.31 9.14 5.38 12 5.38z" />
-              </svg>
-              Sign in with Google
-            </button> */}
-
-            <p className="pt-1 text-center text-sm text-gray-500">
-              Don't have an account?{" "}
+            <p className="text-center text-xs text-gray-600">
+              Support agents do not sign up - an administrator invites you and
+              emails your temporary password.{" "}
               <Link
                 to="/signup"
                 className="font-medium text-accent hover:text-accent-hover"
               >
-                Create one
+                Create a customer account
               </Link>
             </p>
           </form>
