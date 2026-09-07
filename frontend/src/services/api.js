@@ -5,6 +5,15 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
+// Auth endpoints legitimately answer 401 for bad credentials — a hard redirect
+// there would wipe the page before the error toast could render.
+const NO_REDIRECT_ON_401 = [
+  "/auth/login",
+  "/auth/signup",
+  "/auth/forgot-password",
+  "/auth/change-password",
+];
+
 // Attach the JWT to every outgoing request, if we have one
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("access_token");
@@ -18,13 +27,28 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const url = error.config?.url || "";
+    const isAuthCall = NO_REDIRECT_ON_401.some((path) => url.includes(path));
+
+    if (error.response?.status === 401 && !isAuthCall) {
       localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
       localStorage.removeItem("user");
       if (!window.location.pathname.includes("/login")) {
         window.location.href = "/login";
       }
     }
+
+    // Backend blocks every other route until the temporary password is replaced.
+    const detail = error.response?.data?.detail || "";
+    if (
+      error.response?.status === 403 &&
+      detail.startsWith("Password change required") &&
+      !window.location.pathname.includes("/change-password")
+    ) {
+      window.location.href = "/change-password";
+    }
+
     return Promise.reject(error);
   }
 );

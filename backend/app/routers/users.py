@@ -1,73 +1,221 @@
+import logging
+import secrets
+import string
+from datetime import datetime, timezone
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.concurrency import run_in_threadpool
 
+from backend.app.core import mailer
+from backend.app.core.supabase_client import supabase_admin
+from backend.app.crud.base import CRUDBase
 from backend.app.database import get_db
-from backend.app.models.user import User
+from backend.app.dependencies import require_role
 from backend.app.models.department import Department
 from backend.app.models.enums import UserRole
-from backend.app.schemas.user import UserRead, UserUpdate
-from backend.app.crud.base import CRUDBase
-from backend.app.dependencies import require_role
-from backend.app.core.supabase_client import supabase_admin
-from pydantic import BaseModel, EmailStr
+from backend.app.models.user import User
+from backend.app.schemas.user import AgentInvite, AgentInviteResponse, UserRead, UserUpdate
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/users", tags=["Users"])
 crud = CRUDBase(User)
 
 SUPER_ADMIN_EMAIL = "admin@test.com"
 
+_PW_SYMBOLS = "!@#$%^&*-_=+?"
+
 
 def is_super_admin(user: User) -> bool:
     return user.email.strip().lower() == SUPER_ADMIN_EMAIL
 
 
-class UserInvite(BaseModel):
-    email: EmailStr
+def generate_temp_password(length: int = 16) -> str:
+    """Random password that always satisfies upper/lower/digit/symbol rules."""
+    pools = (string.ascii_uppercase, string.ascii_lowercase, string.digits, _PW_SYMBOLS)
+    alphabet = "".join(pools)
+    chars = [secrets.choice(pool) for pool in pools]
+    chars += [secrets.choice(alphabet) for _ in range(max(length, 12) - len(pools))]
+    secrets.SystemRandom().shuffle(chars)
+    return "".join(chars)
 
 
-@router.post("/invite", response_model=UserRead, dependencies=[Depends(require_role(UserRole.admin))])
-async def invite_user(payload: UserInvite, db: AsyncSession = Depends(get_db)):
-    try:
-        res = supabase_admin.auth.admin.invite_user_by_email(payload.email)
-    except Exception as e:
-        # Graceful fallback to direct user creation (useful if SMTP is not configured in Supabase)
+def _find_auth_user_id_by_email(email: str) -> str | None:
+    """Page through Supabase Auth looking for an existing account.
+
+    Needed because `create_user` fails when the address already exists in
+    auth.users, and the Table Editor never shows that schema.
+    """
+    target = email.strip().lower()
+    for page in range(1, 26):
         try:
-            res = supabase_admin.auth.admin.create_user({
-                "email": payload.email,
-                "email_confirm": True,
-                "password": "TemporaryPassword123!"
-            })
-        except Exception as inner_e:
-            raise HTTPException(400, f"Supabase invitation failed: {str(e)} (fallback creation failed: {str(inner_e)})")
-    
-    user = res.user
-    if not user:
-        raise HTTPException(400, "Invitation/Creation failed to return a user.")
-        
-    # Check if the user already exists in the database
-    existing_user = await db.get(User, user.id)
-    if existing_user:
-        return existing_user
+            res = supabase_admin.auth.admin.list_users(page=page, per_page=200)
+        except TypeError:  # older gotrue signature
+            res = supabase_admin.auth.admin.list_users()
+        users = getattr(res, "users", res) or []
+        for candidate in users:
+            if (getattr(candidate, "email", "") or "").strip().lower() == target:
+                return str(candidate.id)
+        if len(users) < 200:
+            break
+    return None
 
-    # Add to our local database
-    new_user = User(
-        id=user.id,
-        email=user.email,
-        password_hash="MANAGED_BY_SUPABASE_AUTH",
-        role=UserRole.agent, # Default role for invited user
-        is_active=True
-    )
-    db.add(new_user)
+
+@router.post("/invite-agent", response_model=AgentInviteResponse, status_code=201)
+@router.post(  # legacy path kept alive so older clients keep working
+    "/invite",
+    response_model=AgentInviteResponse,
+    status_code=201,
+    include_in_schema=False,
+)
+async def invite_agent(
+    payload: AgentInvite,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(UserRole.admin)),
+):
+    """Create (or re-invite) a support agent and email them their credentials."""
+    email = str(payload.email).strip().lower()
+
+    department = await db.get(Department, payload.department_id)
+    if not department:
+        raise HTTPException(400, "Department not found")
+
+    temp_password = generate_temp_password()
+    created_auth_user = False
+    reinvited = False
+
+    # 1) Supabase Auth ----------------------------------------------------
     try:
+        res = await run_in_threadpool(
+            supabase_admin.auth.admin.create_user,
+            {
+                "email": email,
+                "password": temp_password,
+                "email_confirm": True,  # skip the confirm-email round trip
+                "user_metadata": {"role": "agent", "department": department.name},
+            },
+        )
+        auth_user = getattr(res, "user", None)
+        if not auth_user:
+            raise HTTPException(502, "Supabase returned no user for the new agent")
+        auth_user_id = str(auth_user.id)
+        created_auth_user = True
+    except HTTPException:
+        raise
+    except Exception as exc:
+        existing_id = await run_in_threadpool(_find_auth_user_id_by_email, email)
+        if not existing_id:
+            raise HTTPException(400, f"Could not create the agent in Supabase Auth: {exc}")
+        # Address already exists -> treat this as a re-invite: rotate the
+        # temporary password on the existing auth account.
+        try:
+            await run_in_threadpool(
+                supabase_admin.auth.admin.update_user_by_id,
+                existing_id,
+                {"password": temp_password, "email_confirm": True},
+            )
+        except Exception as inner_exc:
+            raise HTTPException(
+                400,
+                "Agent already exists in Supabase Auth but the temporary password "
+                f"could not be reset: {inner_exc}",
+            )
+        auth_user_id = existing_id
+        reinvited = True
+
+    # 2) public.users -----------------------------------------------------
+    now = datetime.now(timezone.utc)
+    try:
+        result = await db.execute(select(User).where(User.email == email))
+        profile = result.scalar_one_or_none()
+        if profile is None:
+            profile = await db.get(User, UUID(auth_user_id))
+        elif str(profile.id) != auth_user_id:
+            # auth.users <-> public.users drift: the profile row was created
+            # against a different auth account. Re-pointing the PK would break
+            # every ticket FK, so make the admin resolve it explicitly.
+            raise HTTPException(
+                409,
+                f"A profile for {email} already exists with id {profile.id}, but "
+                f"Supabase Auth has {auth_user_id}. Delete the stale user in "
+                "Settings (or Supabase Auth) and invite again.",
+            )
+
+        if profile is None:
+            profile = User(
+                id=UUID(auth_user_id),
+                email=email,
+                password_hash="MANAGED_BY_SUPABASE_AUTH",
+                role=UserRole.agent,
+                department_id=department.id,
+                is_active=True,
+                must_change_password=True,
+                invited_at=now,
+                invited_by=admin.id,
+            )
+            db.add(profile)
+        else:
+            if is_super_admin(profile):
+                raise HTTPException(403, "The seeded Super Admin cannot be re-invited")
+            profile.role = UserRole.agent
+            profile.department_id = department.id
+            profile.is_active = True
+            profile.must_change_password = True
+            profile.invited_at = now
+            profile.invited_by = admin.id
+            reinvited = True
         await db.commit()
-        await db.refresh(new_user)
+        await db.refresh(profile)
+    except HTTPException:
+        await db.rollback()
+        if created_auth_user:
+            await _delete_auth_user_quietly(auth_user_id)
+        raise
     except Exception:
         await db.rollback()
-        raise HTTPException(409, "Email already registered in local database.")
-        
-    return new_user
+        logger.exception("Failed to persist invited agent %s", email)
+        if created_auth_user:
+            # Never leave an auth.users row without its public.users twin.
+            await _delete_auth_user_quietly(auth_user_id)
+        raise HTTPException(500, "Agent created in Auth but the profile write failed")
+
+    # 3) Brevo email ------------------------------------------------------
+    email_sent = True
+    try:
+        await run_in_threadpool(
+            mailer.send_agent_invite_email,
+            to=email,
+            temporary_password=temp_password,
+            department_name=department.name,
+        )
+    except Exception as exc:
+        email_sent = False
+        logger.warning("Brevo SMTP send failed for %s: %s", email, exc)
+
+    detail = (
+        f"Invitation emailed to {email}"
+        if email_sent
+        else "Agent created, but the invitation email could not be sent. "
+             "Share the temporary password below manually."
+    )
+    return AgentInviteResponse(
+        user=UserRead.model_validate(profile),
+        department_name=department.name,
+        email_sent=email_sent,
+        reinvited=reinvited,
+        detail=detail,
+        temporary_password=None if email_sent else temp_password,
+    )
+
+
+async def _delete_auth_user_quietly(auth_user_id: str) -> None:
+    try:
+        await run_in_threadpool(supabase_admin.auth.admin.delete_user, auth_user_id)
+    except Exception:
+        logger.exception("Failed to clean up auth user %s", auth_user_id)
 
 
 @router.get("/", response_model=list[UserRead], dependencies=[Depends(require_role(UserRole.admin))])
@@ -98,36 +246,39 @@ async def update_user(user_id: UUID, payload: UserUpdate, db: AsyncSession = Dep
         raise HTTPException(403, "The seeded Super Admin cannot be changed")
 
     updates = payload.model_dump(exclude_unset=True)
+    if not updates:
+        return obj
 
+    # Role/department validation only applies when one of them is being changed.
+    # (Previously next_role was read even for an is_active-only payload, which
+    # raised UnboundLocalError -> 500.)
     if "role" in updates or "department_id" in updates:
         next_role = updates.get("role", obj.role)
         next_department_id = updates.get("department_id", obj.department_id)
 
-    if next_role == UserRole.admin:
-        if not next_department_id:
-            raise HTTPException(400, "Admins must be assigned to the Administration department")
-        department = await db.get(Department, next_department_id)
-        if not department:
-            raise HTTPException(400, "Department not found")
-        if department.name.strip().lower() != "administration":
-            raise HTTPException(400, "Only the Administration department can assign admin role")
-        updates["department_id"] = next_department_id
-    elif next_role == UserRole.agent:
-        if not next_department_id:
-            raise HTTPException(400, "Agents must be assigned to a department")
-
-        department = await db.get(Department, next_department_id)
-        if not department:
-            raise HTTPException(400, "Department not found")
-
-        if department.name.strip().lower() == "administration":
-            updates["role"] = UserRole.admin
+        if next_role == UserRole.admin:
+            if not next_department_id:
+                raise HTTPException(400, "Admins must be assigned to the Administration department")
+            department = await db.get(Department, next_department_id)
+            if not department:
+                raise HTTPException(400, "Department not found")
+            if not department.name.strip().lower().startswith("administration"):
+                raise HTTPException(400, "Only the Administration department can assign admin role")
+            updates["department_id"] = next_department_id
+        elif next_role == UserRole.agent:
+            if not next_department_id:
+                raise HTTPException(400, "Agents must be assigned to a department")
+            department = await db.get(Department, next_department_id)
+            if not department:
+                raise HTTPException(400, "Department not found")
+            if department.name.strip().lower().startswith("administration"):
+                updates["role"] = UserRole.admin
+            else:
+                updates["role"] = UserRole.agent
             updates["department_id"] = next_department_id
         else:
-            updates["role"] = UserRole.agent
-            updates["department_id"] = next_department_id
-    else:
-        raise HTTPException(400, "Role management only supports Admin or Agent + Department")
+            raise HTTPException(400, "Role management only supports Admin or Agent + Department")
+
     return await crud.update(db, obj, updates)
 
 
@@ -140,46 +291,6 @@ async def delete_user(user_id: UUID, db: AsyncSession = Depends(get_db)):
         raise HTTPException(403, "The seeded Super Admin cannot be changed")
 
     await crud.delete(db, obj)
-
-@router.post("/invite", response_model=UserRead, dependencies=[Depends(require_role(UserRole.admin))])
-async def invite_user(payload: UserInvite, db: AsyncSession = Depends(get_db)):
-    try:
-        res = supabase_admin.auth.admin.invite_user_by_email(payload.email)
-    except Exception as e:
-        # Graceful fallback to direct user creation
-        try:
-            res = supabase_admin.auth.admin.create_user({
-                "email": payload.email,
-                "email_confirm": True,
-                "password": "TemporaryPassword123!"
-            })
-        except Exception as inner_e:
-            raise HTTPException(400, f"Supabase invitation failed: {str(e)} (fallback creation failed: {str(inner_e)})")
-    
-    user = res.user
-    if not user:
-        raise HTTPException(400, "Invitation/Creation failed to return a user.")
-        
-    # Check if the user already exists in the database
-    existing_user = await db.get(User, user.id)
-    if existing_user:
-        return existing_user
-
-    # Add to our local database
-    new_user = User(
-        id=user.id,
-        email=user.email,
-        password_hash="MANAGED_BY_SUPABASE_AUTH",
-        role=UserRole.agent, # Default role for invited user
-        department_id=payload.department_id, # [NEW] Assure department mapping
-        is_active=True
-    )
-    db.add(new_user)
-    try:
-        await db.commit()
-        await db.refresh(new_user)
-    except Exception:
-        await db.rollback()
-        raise HTTPException(409, "Email already registered in local database.")
-        
-    return new_user
+    # Drop the Supabase Auth account too, otherwise auth.users keeps a row that
+    # can still authenticate and then 404s on every endpoint.
+    await _delete_auth_user_quietly(str(user_id))

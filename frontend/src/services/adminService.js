@@ -5,6 +5,10 @@ export async function getUsers(params = {}) {
   return data;
 }
 
+export async function deleteUser(userId) {
+  await api.delete(`/users/${userId}`);
+}
+
 export async function updateUserRole(userId, payload) {
   const { data } = await api.put(`/users/${userId}`, payload);
   return data;
@@ -43,15 +47,11 @@ export async function getAnalyticsOverview() {
   return data;
 }
 
-// export async function inviteUser(email) {
-//   const { data } = await api.post("/users/invite", { email });
-//   return data;
-// }
-
-export async function inviteUser(email, departmentId = null) {
-  const { data } = await api.post("/users/invite", { 
-    email, 
-    department_id: departmentId 
+export async function inviteAgent(email, departmentId) {
+  const { data } = await api.post("/users/invite-agent", {
+    email,
+    department_id: departmentId,
   });
+  // { user, department_name, email_sent, reinvited, detail, temporary_password? }
   return data;
 }

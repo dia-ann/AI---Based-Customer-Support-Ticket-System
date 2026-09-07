@@ -33,7 +33,3 @@ app.include_router(replies.router)
 @app.get("/health", tags=["Health"])
 async def health():
     return {"status": "ok"}
-
-@app.get("/debug-sentry")
-async def debug_sentry():
-    10/5  # deliberate ZeroDivisionError to prove Sentry works
