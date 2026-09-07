@@ -15,10 +15,10 @@ class SLAState(Base):
         UUID(as_uuid=True), primary_key=True, server_default="gen_random_uuid()"
     )
     ticket_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tickets.id"), unique=True, nullable=False
+        UUID(as_uuid=True), ForeignKey("tickets.id", ondelete="CASCADE"), unique=True, nullable=False
     )
     sla_policy_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("sla_policies.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("sla_policies.id", ondelete="CASCADE"), nullable=False
     )
     response_due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     resolution_due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
