@@ -16,10 +16,10 @@ class Reply(Base):
         UUID(as_uuid=True), primary_key=True, server_default="gen_random_uuid()"
     )
     ticket_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tickets.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("tickets.id", ondelete="CASCADE"), nullable=False
     )
     author_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id")
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )
     is_auto_reply: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_internal_note: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

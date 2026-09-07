@@ -2,9 +2,9 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from backend.app.database import get_db
 from backend.app.models.reply import Reply
+from backend.app.models.ticket import Ticket
 from backend.app.models.user import User
 from backend.app.models.enums import UserRole
 from backend.app.schemas.reply import ReplyCreate, ReplyRead
@@ -16,9 +16,30 @@ crud = CRUDBase(Reply)
 
 @router.post("/", response_model=ReplyRead, status_code=201)
 async def create_reply(payload: ReplyCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # --- RBAC: Load ticket and verify access ---
+    ticket = (await db.execute(
+        select(Ticket).where(Ticket.id == payload.ticket_id)
+    )).scalar_one_or_none()
+    if not ticket:
+        raise HTTPException(404, "Ticket not found")
+    # Customers can only reply to their own tickets
+    if current_user.role == UserRole.customer:
+        if ticket.customer_id != current_user.id:
+            raise HTTPException(403, "Not allowed to reply to this ticket")
+    # Agents can only reply to tickets in their department
+    elif current_user.role == UserRole.agent:
+        if ticket.department_id != current_user.department_id:
+            raise HTTPException(403, "Ticket is not in your department")
+    # Admins can reply to any ticket (no additional check needed)
+    # --- Field stripping: customers cannot set privileged flags ---
     data = payload.model_dump()
     data["author_id"] = current_user.id
+    if current_user.role == UserRole.customer:
+        # Force-override: customers never set internal notes or auto-reply flags
+        data["is_internal_note"] = False
+        data["is_auto_reply"] = False
     return await crud.create(db, data)
+
 
 @router.get("/ticket/{ticket_id}", response_model=list[ReplyRead], dependencies=[Depends(get_current_user)])
 async def list_replies_for_ticket(ticket_id: UUID, db: AsyncSession = Depends(get_db)):
