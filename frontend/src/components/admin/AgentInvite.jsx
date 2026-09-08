@@ -1,14 +1,10 @@
 import { useState } from "react";
 import { UserPlus, Copy, AlertTriangle } from "lucide-react";
 import * as adminService from "../../services/adminService";
+import { useToast } from "../common/Toast";
 
-/**
- * Settings -> Agent Management.
- * Admin types an email, picks a department, clicks Invite Agent.
- * Backend creates the Supabase Auth user + agent profile and emails the
- * temporary password through Brevo.
- */
 export default function AgentInvite({ departments = [], onInvited }) {
+  const { showToast } = useToast();
   const [email, setEmail] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -35,13 +31,15 @@ export default function AgentInvite({ departments = [], onInvited }) {
       setResult(data);
       setEmail("");
       setDepartmentId("");
+      showToast(data.detail || "Agent invited successfully", "success");
       onInvited?.(data.user);
     } catch (err) {
-      setError(
+      const errMsg =
         err.response?.data?.detail?.[0]?.msg ||
-          err.response?.data?.detail ||
-          "Failed to invite agent",
-      );
+        err.response?.data?.detail ||
+        "Failed to invite agent";
+      setError(errMsg);
+      showToast(errMsg, "error");
     } finally {
       setSubmitting(false);
     }
@@ -98,7 +96,9 @@ export default function AgentInvite({ departments = [], onInvited }) {
 
       {result && (
         <div className="mt-3 rounded-[8px] border border-[#232632] bg-[#0a0c10] p-3 text-[12px]">
-          <p className={result.email_sent ? "text-[#4ade80]" : "text-[#fbbf24]"}>
+          <p
+            className={result.email_sent ? "text-[#4ade80]" : "text-[#fbbf24]"}
+          >
             {result.detail}
           </p>
           <p className="mt-1 text-[#9ca3af]">
@@ -112,7 +112,9 @@ export default function AgentInvite({ departments = [], onInvited }) {
               </code>
               <button
                 type="button"
-                onClick={() => navigator.clipboard?.writeText(result.temporary_password)}
+                onClick={() =>
+                  navigator.clipboard?.writeText(result.temporary_password)
+                }
                 className="flex items-center gap-1 text-[#9ca3af] hover:text-white"
               >
                 <Copy className="h-3.5 w-3.5" /> Copy

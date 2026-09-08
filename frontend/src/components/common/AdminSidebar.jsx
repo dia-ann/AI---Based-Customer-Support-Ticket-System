@@ -1,9 +1,8 @@
 import { NavLink, useNavigate } from "react-router-dom";
 
 export default function AdminSidebar() {
-  const navigate = useNavigate();
   return (
-    <div className="w-64 min-h-screen bg-[#0f121a] border-r border-[#232838] flex flex-col justify-between">
+    <div className="w-64 min-h-screen bg-[#0f121a] border-r border-[#232838] flex flex-col">
       <div className="p-4">
         <div className="flex items-center gap-3 px-2 py-2 mb-8">
           <div className="w-9 h-9 bg-[#12131a] rounded-xl flex items-center justify-center">
@@ -55,16 +54,23 @@ export default function AdminSidebar() {
           <NavLink
             to="/admin/analytics"
             className={({ isActive }) =>
-              `block px-4 py-2.5 rounded-xl text-[13px] ${isActive ? "bg-[#f2b705] text-black font-medium" : "text-gray-400 hover:text-white"}`
+              `block px-4 py-2.5 rounded-xl text-[13px] ${
+                isActive
+                  ? "bg-[#f2b705] text-black font-medium"
+                  : "text-gray-400 hover:text-white"
+              }`
             }
           >
             Analytics
           </NavLink>
-          {/* AGENT - ADDED -> UPDATED TO POINT TO TRIAGE ROUTE */}
           <NavLink
             to="/admin/triage"
             className={({ isActive }) =>
-              `block px-4 py-2.5 rounded-xl text-[13px] ${isActive ? "bg-[#f2b705] text-black font-medium" : "text-gray-400 hover:text-white"}`
+              `block px-4 py-2.5 rounded-xl text-[13px] ${
+                isActive
+                  ? "bg-[#f2b705] text-black font-medium"
+                  : "text-gray-400 hover:text-white"
+              }`
             }
           >
             Agent Panel
@@ -72,35 +78,16 @@ export default function AdminSidebar() {
           <NavLink
             to="/admin/settings"
             className={({ isActive }) =>
-              `block px-4 py-2.5 rounded-xl text-[13px] ${isActive ? "bg-[#f2b705] text-black font-medium" : "text-gray-400 hover:text-white"}`
+              `block px-4 py-2.5 rounded-xl text-[13px] ${
+                isActive
+                  ? "bg-[#f2b705] text-black font-medium"
+                  : "text-gray-400 hover:text-white"
+              }`
             }
           >
             Settings
           </NavLink>
         </nav>
-      </div>
-      <div className="p-6 mb-8">
-        <button
-          onClick={() => {
-            localStorage.clear();
-            navigate("/login");
-          }}
-          className="flex items-center gap-2.5 text-[15px] font-medium text-red-500 hover:text-red-400"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-            <polyline points="16 17 21 12 16 7" />
-            <line x1="21" y1="12" x2="9" y2="12" />
-          </svg>
-          Log out
-        </button>
       </div>
     </div>
   );

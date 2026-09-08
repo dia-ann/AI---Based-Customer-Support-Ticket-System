@@ -8,17 +8,26 @@ class UserRead(BaseModel):
     id: UUID
     email: EmailStr
     role: UserRole
-    department_id: UUID | None
+    department_id: UUID | None = None
+    department_name: str | None = None
     created_at: datetime
     is_active: bool
+    phone_number: str | None = None
+    invited_by: UUID | None = None
+    invited_by_email: str | None = None
     must_change_password: bool = False
     model_config = ConfigDict(from_attributes=True)
+
+
+class UserProfileUpdate(BaseModel):
+    phone_number: str | None = None
 
 
 class UserUpdate(BaseModel):
     role: UserRole | None = None
     department_id: UUID | None = None
     is_active: bool | None = None
+    phone_number: str | None = None
 
 
 class AgentInvite(BaseModel):

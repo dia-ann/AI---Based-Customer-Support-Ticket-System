@@ -1,13 +1,7 @@
-"""Outbound email over Brevo SMTP (stdlib smtplib — no extra dependency).
+"""Outbound email via Gmail SMTP (stdlib smtplib — no extra dependency).
 
-Brevo (ex-Sendinblue) SMTP relay:
-    host  smtp-relay.brevo.com
-    port  587 (STARTTLS)  |  465 (implicit TLS)
-    user  your Brevo SMTP login (looks like 8xxxxx@smtp-brevo.com)
-    pass  your Brevo SMTP *key* (NOT the API v3 key, NOT your account password)
-
-MAIL_FROM must be a verified sender in Brevo, otherwise the relay rejects
-the message with 550.
+Uses Gmail's SMTP server with an App Password.
+SMTP_USER must be a Gmail address with 2FA enabled and an App Password generated.
 """
 from __future__ import annotations
 
@@ -26,23 +20,17 @@ class MailNotConfiguredError(RuntimeError):
     """Raised when SMTP credentials are missing."""
 
 
-def _client() -> smtplib.SMTP | smtplib.SMTP_SSL:
-    if not settings.BREVO_SMTP_LOGIN or not settings.BREVO_SMTP_KEY:
+def _client() -> smtplib.SMTP:
+    if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
         raise MailNotConfiguredError(
-            "BREVO_SMTP_LOGIN / BREVO_SMTP_KEY are not set in .env"
+            "SMTP_USER / SMTP_PASSWORD are not set in .env"
         )
-    host, port = settings.BREVO_SMTP_HOST, settings.BREVO_SMTP_PORT
     context = ssl.create_default_context()
-    if port == 465:
-        smtp: smtplib.SMTP | smtplib.SMTP_SSL = smtplib.SMTP_SSL(
-            host, port, timeout=settings.SMTP_TIMEOUT_SECONDS, context=context
-        )
-    else:
-        smtp = smtplib.SMTP(host, port, timeout=settings.SMTP_TIMEOUT_SECONDS)
-        smtp.ehlo()
-        smtp.starttls(context=context)
-        smtp.ehlo()
-    smtp.login(settings.BREVO_SMTP_LOGIN, settings.BREVO_SMTP_KEY)
+    smtp = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=20)
+    smtp.ehlo()
+    smtp.starttls(context=context)
+    smtp.ehlo()
+    smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
     return smtp
 
 

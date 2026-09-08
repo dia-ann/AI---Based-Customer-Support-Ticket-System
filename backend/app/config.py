@@ -27,14 +27,15 @@ class Settings(BaseSettings):
     ENFORCE_PASSWORD_CHANGE: bool = True
     MIN_PASSWORD_LENGTH: int = 8
 
-    BREVO_SMTP_HOST: str = "smtp-relay.brevo.com"
-    BREVO_SMTP_PORT: int = 587
-    BREVO_SMTP_LOGIN: str | None = None
-    BREVO_SMTP_KEY: str | None = None
-    SMTP_TIMEOUT_SECONDS: int = 20
-    MAIL_FROM: str = "no-reply@example.com"
+    # --- Gmail SMTP ---
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: str | None = None
+    SMTP_PASSWORD: str | None = None
+    MAIL_FROM: str = "kolambkarpratik05@gmail.com"
     MAIL_FROM_NAME: str = "Deskwise Support"
     MAIL_REPLY_TO: str | None = None
+
 
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,

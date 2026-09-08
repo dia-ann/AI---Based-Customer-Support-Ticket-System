@@ -7,7 +7,6 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // On mount: if a token exists, restore the session by fetching the profile.
   useEffect(() => {
     const token = localStorage.getItem("access_token");
     if (!token) {
@@ -17,21 +16,21 @@ export function AuthProvider({ children }) {
     authService
       .fetchCurrentUser()
       .then((profile) => setUser(withDisplayName(profile)))
-      .catch(() => clearSession()) // token expired/invalid -> log out cleanly
+      .catch(() => clearSession())
       .finally(() => setLoading(false));
   }, []);
 
   async function login(email, password) {
-    // 1) exchange credentials for tokens
-    const { access_token, refresh_token } = await authService.login(email, password);
+    const { access_token, refresh_token } = await authService.login(
+      email,
+      password,
+    );
     localStorage.setItem("access_token", access_token);
     if (refresh_token) localStorage.setItem("refresh_token", refresh_token);
-    // 2) role + must_change_password live in public.users -> fetch /auth/me
-    //    (/auth/me is exempt from the forced-password-change block)
     const profile = withDisplayName(await authService.fetchCurrentUser());
     localStorage.setItem("user", JSON.stringify(profile));
     setUser(profile);
-    return profile; // Login.jsx reads profile.role / profile.must_change_password
+    return profile;
   }
 
   async function logout() {
@@ -42,9 +41,16 @@ export function AuthProvider({ children }) {
     }
   }
 
-  // Re-pull /auth/me — used right after a password change clears the flag.
   async function refreshUser() {
     const profile = withDisplayName(await authService.fetchCurrentUser());
+    localStorage.setItem("user", JSON.stringify(profile));
+    setUser(profile);
+    return profile;
+  }
+
+  async function updateProfile(payload) {
+    const updated = await authService.updateProfile(payload);
+    const profile = withDisplayName(updated);
     localStorage.setItem("user", JSON.stringify(profile));
     setUser(profile);
     return profile;
@@ -80,9 +86,10 @@ export function AuthProvider({ children }) {
   );
 }
 
-// The users table has no name column yet, so /auth/me returns no name.
-// Fall back to the email's local-part so the navbar isn't blank.
 function withDisplayName(profile) {
   if (!profile) return profile;
-  return { ...profile, name: profile.name ?? profile.email?.split("@")[0] ?? "User" };
+  return {
+    ...profile,
+    name: profile.name ?? profile.email?.split("@")[0] ?? "User",
+  };
 }
