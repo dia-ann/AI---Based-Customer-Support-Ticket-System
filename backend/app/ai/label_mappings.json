@@ -1,15 +1,12 @@
 {
   "department": {
-    "Billing and Payments": 0,
-    "Customer Service": 1,
-    "General Inquiry": 2,
-    "Human Resources": 3,
-    "IT Support": 4,
-    "Product Support": 5,
-    "Returns and Exchanges": 6,
-    "Sales and Pre-Sales": 7,
-    "Service Outages and Maintenance": 8,
-    "Technical Support": 9
+    "Administration & People": 0,
+    "Billing & Finance": 1,
+    "Customer Experience": 2,
+    "Product Operations": 3,
+    "Sales & Growth": 4,
+    "Service Reliability": 5,
+    "Technical Operations": 6
   },
   "priority": {
     "high": 0,
