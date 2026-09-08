@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import * as adminService from "../../services/adminService";
 
 export default function Analytics() {
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
+  const intervalRef = useRef(null);
 
   useEffect(() => {
     async function loadAnalytics() {
@@ -17,6 +18,18 @@ export default function Analytics() {
       }
     }
     loadAnalytics();
+
+    // Poll every 15 seconds for real-time updates
+    intervalRef.current = setInterval(async () => {
+      try {
+        const data = await adminService.getAnalyticsOverview();
+        setAnalytics(data);
+      } catch (err) {
+        console.error("Failed to refresh analytics", err);
+      }
+    }, 15000);
+
+    return () => clearInterval(intervalRef.current);
   }, []);
 
   if (loading) {
@@ -42,6 +55,35 @@ export default function Analytics() {
     analytics.total_tickets > 0
       ? ((resolvedAndClosed / analytics.total_tickets) * 100).toFixed(1)
       : "0.0";
+
+  // Build conic-gradient for the donut chart from real status data
+  const statusColors = {
+    open: "#fbbf24",
+    in_progress: "#3b82f6",
+    pending: "#a78bfa",
+    resolved: "#34d399",
+    closed: "#6b7280",
+  };
+
+  const statusData = analytics.tickets_by_status || [];
+  const total = analytics.total_tickets || 1; // avoid division by zero
+
+  let conicStops = [];
+  let cumulative = 0;
+  statusData.forEach((s) => {
+    const pct = (s.count / total) * 100;
+    if (pct > 0) {
+      const color = statusColors[s.name] || "#6b7280";
+      conicStops.push(`${color} ${cumulative}% ${cumulative + pct}%`);
+      cumulative += pct;
+    }
+  });
+
+  // If no tickets exist, show a fallback grey ring
+  const conicGradient =
+    conicStops.length > 0
+      ? `conic-gradient(${conicStops.join(", ")})`
+      : "conic-gradient(#232632 0% 100%)";
 
   return (
     <div className="min-h-screen bg-[#0a0c10] text-white p-8">
@@ -117,7 +159,7 @@ export default function Analytics() {
                     </div>
                     <div className="h-2 bg-[#0f1117] rounded-full overflow-hidden">
                       <div
-                        className={`h-full ${color} rounded-full`}
+                        className={`h-full ${color} rounded-full transition-all duration-700 ease-out`}
                         style={{ width: `${percent}%` }}
                       ></div>
                     </div>
@@ -132,22 +174,30 @@ export default function Analytics() {
         <div className="bg-[#181b26] border border-[#232632] rounded-[16px] p-6">
           <h3 className="font-semibold text-[15px] mb-6">By Status</h3>
           <div className="flex justify-center my-4">
-            <div className="w-32 h-32 rounded-full border-[8px] border-[#fbbf24] border-r-[#3b82f6] border-b-[#34d399] border-l-[#232632] flex items-center justify-center">
-              <span className="text-[14px] font-bold">
-                {analytics.open_count} Open
-              </span>
+            <div
+              className="w-32 h-32 rounded-full flex items-center justify-center transition-all duration-700 ease-out"
+              style={{
+                background: conicGradient,
+                /* Use a CSS mask to create the donut hole */
+              }}
+            >
+              <div className="w-[88px] h-[88px] rounded-full bg-[#181b26] flex items-center justify-center">
+                <span className="text-[14px] font-bold">
+                  {analytics.open_count} Open
+                </span>
+              </div>
             </div>
           </div>
           <div className="space-y-3 mt-6 text-[13px]">
             {analytics.tickets_by_status?.map((s) => {
-              const statusColors = {
+              const statusBgColors = {
                 open: "bg-[#fbbf24]",
                 in_progress: "bg-[#3b82f6]",
                 pending: "bg-[#a78bfa]",
                 resolved: "bg-[#34d399]",
                 closed: "bg-[#6b7280]",
               };
-              const color = statusColors[s.name] || "bg-gray-400";
+              const color = statusBgColors[s.name] || "bg-gray-400";
               const percent =
                 analytics.total_tickets > 0
                   ? Math.round((s.count / analytics.total_tickets) * 100)

@@ -27,6 +27,11 @@ export async function fetchCurrentUser() {
   return data;
 }
 
+export async function updateProfile(payload) {
+  const { data } = await api.patch("/auth/me", payload);
+  return data;
+}
+
 // Signed-in change (used for the forced first-login change too).
 export async function changePassword(currentPassword, newPassword) {
   const { data } = await api.post("/auth/change-password", {

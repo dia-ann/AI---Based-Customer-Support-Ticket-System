@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -7,8 +8,10 @@ from starlette.concurrency import run_in_threadpool
 
 from backend.app.config import settings
 from backend.app.core.supabase_client import make_anon_client, supabase, supabase_admin
+from backend.app.core.roles import is_company_domain
 from backend.app.database import get_db
 from backend.app.dependencies import get_access_token, get_current_user, get_token_claims
+from backend.app.models.department import Department
 from backend.app.models.enums import UserRole
 from backend.app.models.user import User
 from backend.app.schemas.auth import (
@@ -20,9 +23,7 @@ from backend.app.schemas.auth import (
     SignUpRequest,
     TokenResponse,
 )
-from backend.app.schemas.user import UserRead
-
-from datetime import datetime, timezone
+from backend.app.schemas.user import UserProfileUpdate, UserRead
 
 logger = logging.getLogger(__name__)
 
@@ -30,11 +31,7 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
 def _verify_password(email: str, password: str):
-    """Confirm a password against Supabase Auth and return the auth user.
-
-    Uses a throwaway client so the module-level singleton never holds someone
-    else's session. Returns None when the credentials are wrong.
-    """
+    """Confirm a password against Supabase Auth and return the auth user."""
     client = make_anon_client()
     try:
         res = client.auth.sign_in_with_password({"email": email, "password": password})
@@ -73,6 +70,10 @@ async def _apply_new_password(
 async def signup(payload: SignUpRequest, db: AsyncSession = Depends(get_db)):
     if not settings.ALLOW_PUBLIC_SIGNUP:
         raise HTTPException(403, "Public signup is disabled. Ask an administrator for an account.")
+    
+    if is_company_domain(payload.email):
+        domain=payload.email.rsplit("@",1)[-1]
+        raise HTTPException(403,f"User with @{domain} cannot create account here. ""Agent accounts are created by an administrator.",)
 
     try:
         res = supabase.auth.sign_up({"email": payload.email, "password": payload.password})
@@ -90,8 +91,6 @@ async def signup(payload: SignUpRequest, db: AsyncSession = Depends(get_db)):
     if not email:
         raise HTTPException(400, "Signup succeeded but returned no email address.")
 
-    # Public signup ALWAYS creates a customer. Agents/admins are provisioned by
-    # an admin via POST /users/invite-agent - never by self-service.
     new_user = User(
         id=user.id,
         email=email,
@@ -175,8 +174,50 @@ async def logout(
 
 
 @router.get("/me", response_model=UserRead)
-async def me(current_user: User = Depends(get_current_user)):
-    return current_user
+async def me(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    department_name = None
+    if current_user.department_id:
+        dept = await db.get(Department, current_user.department_id)
+        if dept:
+            department_name = dept.name
+
+    invited_by_email = None
+    if current_user.invited_by:
+        inviter = await db.get(User, current_user.invited_by)
+        if inviter:
+            invited_by_email = inviter.email
+
+    return UserRead(
+        id=current_user.id,
+        email=current_user.email,
+        role=current_user.role,
+        department_id=current_user.department_id,
+        department_name=department_name,
+        created_at=current_user.created_at,
+        is_active=current_user.is_active,
+        phone_number=current_user.phone_number,
+        invited_by=current_user.invited_by,
+        invited_by_email=invited_by_email,
+        must_change_password=current_user.must_change_password,
+    )
+
+
+@router.patch("/me", response_model=UserRead)
+async def update_me(
+    payload: UserProfileUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update personal profile fields (e.g. contact number)."""
+    if payload.phone_number is not None:
+        current_user.phone_number = payload.phone_number.strip() or None
+        await db.commit()
+        await db.refresh(current_user)
+
+    return await me(current_user=current_user, db=db)
 
 
 @router.post("/change-password", response_model=PasswordChangedResponse)
@@ -203,11 +244,7 @@ async def change_password(
 
 @router.post("/forgot-password", response_model=PasswordChangedResponse)
 async def forgot_password(payload: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
-    """Reset from the login screen using the OLD password (no email link).
-
-    Deliberately returns the same 401 for 'no such account' and 'wrong old
-    password' so the endpoint cannot be used to enumerate addresses.
-    """
+    """Reset from the login screen using the OLD password (no email link)."""
     email = str(payload.email).strip().lower()
     auth_user = await run_in_threadpool(_verify_password, email, payload.current_password)
     if auth_user is None:

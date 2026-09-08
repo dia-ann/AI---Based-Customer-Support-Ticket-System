@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
 from backend.app.core import mailer
+from backend.app.core.roles import is_company_domain
 from backend.app.core.supabase_client import supabase_admin
 from backend.app.crud.base import CRUDBase
 from backend.app.database import get_db
@@ -78,6 +79,9 @@ async def invite_agent(
 ):
     """Create (or re-invite) a support agent and email them their credentials."""
     email = str(payload.email).strip().lower()
+
+    if not is_company_domain(email):
+        raise HTTPException(400, "Invalid user domain name")
 
     department = await db.get(Department, payload.department_id)
     if not department:
