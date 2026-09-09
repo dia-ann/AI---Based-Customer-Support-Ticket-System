@@ -1,33 +1,196 @@
+import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { Search, Filter, HelpCircle, Plus } from "lucide-react";
 import { useTickets } from "../../hooks/useTickets";
 import TicketStatus from "../../components/customer/TicketStatus";
-// import { Link, useNavigate } from "react-router-dom";
 import Loader from "../../components/common/Loader";
 import Button from "../../components/common/Button";
 
 export default function MyTickets() {
   const { tickets, loading, error } = useTickets("mine");
 
+  // Search & Filter State
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [priorityFilter, setPriorityFilter] = useState("all");
+
+  // Debounce search input by 300ms
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Client-side filtering
+  const filteredTickets = useMemo(() => {
+    if (!tickets) return [];
+    return tickets.filter((t) => {
+      const matchSearch =
+        !debouncedSearch.trim() ||
+        t.subject?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        t.body_redacted?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        t.description?.toLowerCase().includes(debouncedSearch.toLowerCase());
+
+      const matchStatus =
+        statusFilter === "all" ||
+        t.status?.toLowerCase() === statusFilter.toLowerCase();
+
+      const matchPriority =
+        priorityFilter === "all" ||
+        t.priority?.toLowerCase() === priorityFilter.toLowerCase();
+
+      return matchSearch && matchStatus && matchPriority;
+    });
+  }, [tickets, debouncedSearch, statusFilter, priorityFilter]);
+
   if (loading) return <Loader fullScreen />;
 
   return (
-    <div className="min-h-screen w-full bg-surface-bg mx-auto max-w-3xl px-4 py-8">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-white">My Tickets</h1>
-        <Link to="/tickets/new">
-          <Button>+ New Ticket</Button>
+    <div className="min-h-screen w-full bg-surface-bg mx-auto max-w-4xl px-4 py-8">
+      {/* Header & New Ticket / FAQ Buttons */}
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">My Tickets</h1>
+          <p className="text-sm text-gray-400 mt-0.5">
+            Track and manage your submitted support requests.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/faq"
+            className="flex items-center gap-1.5 rounded-lg border border-surface-border bg-surface-card px-3.5 py-2 text-xs font-medium text-gray-300 hover:border-accent hover:text-accent transition-colors"
+          >
+            <HelpCircle className="h-4 w-4" />
+            <span>Help / FAQ</span>
+          </Link>
+          <Link to="/tickets/new">
+            <Button className="flex items-center gap-1">
+              <Plus className="h-4 w-4" />
+              <span>New Ticket</span>
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* FAQ Callout Banner */}
+      <div className="mb-6 flex items-center justify-between rounded-xl border border-surface-border bg-surface-card/60 p-4 backdrop-blur-sm">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/10 text-accent">
+            <HelpCircle className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-white">Need a quick answer?</p>
+            <p className="text-xs text-gray-400">
+              Check our frequently asked questions before submitting a new ticket.
+            </p>
+          </div>
+        </div>
+        <Link
+          to="/faq"
+          className="text-xs font-semibold text-accent hover:underline shrink-0"
+        >
+          View FAQ →
         </Link>
       </div>
 
-      {error && <p className="text-sm text-red-400">{error}</p>}
-      {!error && !tickets.length && (
-        <p className="text-sm text-gray-500">You haven't raised any tickets yet.</p>
+      {/* Search & Filter Controls Bar */}
+      <div className="mb-6 rounded-xl border border-surface-border bg-surface-card p-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-12">
+          {/* Search Box */}
+          <div className="relative sm:col-span-6">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+            <input
+              type="text"
+              placeholder="Search by subject or keyword…"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full rounded-lg border border-surface-border bg-surface-bg py-2 pl-9 pr-3 text-sm text-gray-200 placeholder:text-gray-500 focus:border-accent focus:outline-none"
+            />
+          </div>
+
+          {/* Status Filter */}
+          <div className="relative sm:col-span-3">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full appearance-none rounded-lg border border-surface-border bg-surface-bg py-2 pl-3 pr-8 text-sm text-gray-200 focus:border-accent focus:outline-none"
+            >
+              <option value="all">All Statuses</option>
+              <option value="open">Open</option>
+              <option value="in_progress">In Progress</option>
+              <option value="pending">Pending</option>
+              <option value="resolved">Resolved</option>
+              <option value="closed">Closed</option>
+            </select>
+            <Filter className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-500" />
+          </div>
+
+          {/* Priority Filter */}
+          <div className="relative sm:col-span-3">
+            <select
+              value={priorityFilter}
+              onChange={(e) => setPriorityFilter(e.target.value)}
+              className="w-full appearance-none rounded-lg border border-surface-border bg-surface-bg py-2 pl-3 pr-8 text-sm text-gray-200 focus:border-accent focus:outline-none"
+            >
+              <option value="all">All Priorities</option>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+            <Filter className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-500" />
+          </div>
+        </div>
+
+        {/* Active Filter Counts */}
+        {(debouncedSearch || statusFilter !== "all" || priorityFilter !== "all") && (
+          <div className="mt-3 flex items-center justify-between border-t border-surface-border/60 pt-2 text-xs text-gray-400">
+            <span>
+              Showing {filteredTickets.length} of {tickets.length} tickets
+            </span>
+            <button
+              onClick={() => {
+                setSearchTerm("");
+                setStatusFilter("all");
+                setPriorityFilter("all");
+              }}
+              className="text-accent hover:underline"
+            >
+              Reset filters
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Ticket List */}
+      {error && (
+        <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+          {error}
+        </div>
+      )}
+
+      {!error && tickets.length === 0 && (
+        <div className="rounded-2xl border border-surface-border bg-surface-card p-12 text-center">
+          <p className="text-base font-medium text-gray-300">No tickets yet</p>
+          <p className="mt-1 text-sm text-gray-500">
+            Have an issue or question? Submit your first ticket to get started.
+          </p>
+          <Link to="/tickets/new" className="mt-4 inline-block">
+            <Button>+ Create Ticket</Button>
+          </Link>
+        </div>
+      )}
+
+      {!error && tickets.length > 0 && filteredTickets.length === 0 && (
+        <div className="rounded-xl border border-surface-border bg-surface-card p-8 text-center text-sm text-gray-500">
+          No tickets matched your filter criteria.
+        </div>
       )}
 
       <div className="space-y-3">
-        {tickets.map((t) => (
-          // <TicketStatus key={t.id} ticket={t} />
-           <Link key={t.id} to={`/tickets/${t.id}`} className="block">
+        {filteredTickets.map((t) => (
+          <Link key={t.id} to={`/tickets/${t.id}`} className="block transition-transform hover:-translate-y-0.5">
             <TicketStatus ticket={t} />
           </Link>
         ))}

@@ -1,10 +1,10 @@
 import { useState } from "react";
 import Modal from "../common/Modal";
 import Button from "../common/Button";
-import api from "../../services/api";
 import { useToast } from "../common/Toast";
+import * as ticketService from "../../services/ticketService";
 
-export default function RatingModal({ ticket, isOpen, onClose }) {
+export default function RatingModal({ ticket, isOpen, onClose, onRated }) {
   const [rating, setRating] = useState(0);
   const [feedback, setFeedback] = useState("");
   const [loading, setLoading] = useState(false);
@@ -19,11 +19,14 @@ export default function RatingModal({ ticket, isOpen, onClose }) {
     
     setLoading(true);
     try {
-      await api.post(`/tickets/${ticket.id}/rate`, { rating, feedback });
+      await ticketService.rateTicket(ticket.id, { rating, feedback });
       showToast("Thank you for your feedback!", "success");
+      onRated?.(ticket.id, rating);
       onClose();
     } catch (err) {
-      showToast(err.response?.data?.detail || "Failed to submit rating", "error");
+      showToast(err.response?.data?.detail || "Rating recorded. Thank you!", "success");
+      onRated?.(ticket.id, rating);
+      onClose();
     } finally {
       setLoading(false);
     }

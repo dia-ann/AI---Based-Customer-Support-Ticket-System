@@ -42,8 +42,8 @@ export async function updateSLAPolicy(policyId, payload) {
   return data;
 }
 
-export async function getAnalyticsOverview() {
-  const { data } = await api.get("/tickets/analytics");
+export async function getAnalyticsOverview(params = {}) {
+  const { data } = await api.get("/tickets/analytics", { params });
   return data;
 }
 

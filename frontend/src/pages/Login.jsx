@@ -172,6 +172,15 @@ export default function Login() {
                 Create a customer account
               </Link>
             </p>
+
+            <div className="pt-2 text-center">
+              <Link
+                to="/faq"
+                className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-accent transition-colors"
+              >
+                <span>Need help? Browse our Self-Service FAQ →</span>
+              </Link>
+            </div>
           </form>
         </div>
       </div>

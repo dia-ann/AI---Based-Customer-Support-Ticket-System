@@ -37,6 +37,7 @@ export default function Dashboard() {
         <TicketTable
           tickets={tickets}
           loading={loading}
+          onBulkUpdated={refetch}
           renderActions={(ticket) => (
             <button
               onClick={() => handleReassignToTriage(ticket)}
