@@ -8,14 +8,13 @@ from backend.app.database import get_db
 from backend.app.models.ticket import Ticket
 from backend.app.models.user import User
 from backend.app.models.sla_state import SLAState
-from backend.app.models.category import Category
+from backend.app.models.department import Department
 from backend.app.models.enums import UserRole, TicketStatus, TicketPriority
 from backend.app.schemas.ticket import TicketCreate, TicketUpdate, TicketRead
 from backend.app.crud.base import CRUDBase
 from backend.app.dependencies import get_current_user, require_role
 
 from backend.app.ai.classify_ticket import classify_ticket
-from backend.app.models.routing_rule import RoutingRule
 from backend.app.models.ticket_rating import TicketRating
 from backend.app.schemas.ticket_rating import TicketRatingCreate, TicketRatingRead
 from datetime import datetime, timedelta
@@ -49,23 +48,18 @@ def _ticket_to_read(ticket: Ticket, customer_email: str | None, sla_due_at=None)
 async def create_ticket(payload: TicketCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     ai_result = classify_ticket(payload.subject, payload.body)
 
-    category_row = (await db.execute(
-        select(Category).where(Category.name == ai_result["category"]["label"])
+    # NOTE: the model now predicts a department name directly (7-class model),
+    # not a category (the old 10-class RoutingRule lookup is no longer used).
+    department_row = (await db.execute(
+        select(Department).where(Department.name == ai_result["category"]["label"])
     )).scalar_one_or_none()
-
-    department_id = None
-    if category_row:
-        routing = (await db.execute(
-            select(RoutingRule).where(RoutingRule.category_id == category_row.id)
-        )).scalar_one_or_none()
-        department_id = routing.department_id if routing else None
 
     data = {
         "customer_id": current_user.id,
         "subject": payload.subject,
         "body_redacted": ai_result["body_redacted"],
-        "category_id": category_row.id if category_row else None,
-        "department_id": department_id,
+        "category_id": None,
+        "department_id": department_row.id if department_row else None,
         "priority": ai_result["priority"]["label"],
         "classification_confidence": ai_result["category"]["confidence"],
         "status": "human_review" if ai_result["category"]["needs_human_review"] else "open",
@@ -119,9 +113,8 @@ async def list_tickets(
                 # If it's NOT manually overridden by an admin (1.0)
                 (Ticket.classification_confidence.is_(None) | (Ticket.classification_confidence != 1.0)) &
                 (
-                    (Ticket.category_id.is_(None)) |
-                    (Ticket.classification_confidence < 0.6) |
-                    (Ticket.department_id.is_(None))
+                    (Ticket.department_id.is_(None)) |
+                    (Ticket.classification_confidence < 0.6)
                 )
             )
         else:
@@ -129,7 +122,6 @@ async def list_tickets(
                 # If it WAS manually overridden (1.0) OR it successfully passed AI triage automatically
                 (Ticket.classification_confidence == 1.0) |
                 (
-                    (Ticket.category_id.is_not(None)) &
                     (Ticket.classification_confidence >= 0.6) &
                     (Ticket.department_id.is_not(None))
                 )
@@ -184,10 +176,10 @@ async def get_analytics(db: AsyncSession = Depends(get_db), current_user: User =
         {"name": "closed", "count": closed_count},
     ]
 
-    # 3. Category Breakdown
-    cat_query = select(Category.name, sa_func.count()).select_from(Ticket).join(Category, Ticket.category_id == Category.id).group_by(Category.name)
-    cat_rows = (await db.execute(cat_query)).all()
-    tickets_by_category = [{"name": r[0], "count": r[1]} for r in cat_rows]
+    # 3. Department Breakdown (was Category — model now predicts department directly)
+    dept_query = select(Department.name, sa_func.count()).select_from(Ticket).join(Department, Ticket.department_id == Department.id).group_by(Department.name)
+    dept_rows = (await db.execute(dept_query)).all()
+    tickets_by_category = [{"name": r[0], "count": r[1]} for r in dept_rows]
 
     # 4. CSAT (Average Rating)
     csat_query = select(sa_func.avg(TicketRating.rating)).select_from(TicketRating)

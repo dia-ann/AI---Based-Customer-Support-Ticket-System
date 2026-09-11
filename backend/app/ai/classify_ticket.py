@@ -9,6 +9,9 @@ BASE_DIR = Path(__file__).parent / "models"
 dept_tokenizer = DistilBertTokenizerFast.from_pretrained(BASE_DIR / "department")
 dept_model = DistilBertForSequenceClassification.from_pretrained(BASE_DIR / "department")
 dept_model.eval()
+print(f"[DEBUG] Department model num_labels: {dept_model.config.num_labels}")
+print(f"[DEBUG] Loaded from: {BASE_DIR / 'department'}")
+
 
 priority_tokenizer = DistilBertTokenizerFast.from_pretrained(BASE_DIR / "priority")
 priority_model = DistilBertForSequenceClassification.from_pretrained(BASE_DIR / "priority")
@@ -18,6 +21,8 @@ with open(BASE_DIR.parent / "label_mappings.json") as f:
     mappings = json.load(f)
 id_to_dept = {v: k for k, v in mappings["department"].items()}
 id_to_priority = {v: k for k, v in mappings["priority"].items()}
+print(f"[DEBUG] Labels: {id_to_dept if 'id_to_dept' in dir() else 'not yet loaded'}")
+print(f"[DEBUG] Model config num_labels: {dept_model.config.num_labels}")
 
 CONFIDENCE_THRESHOLD = 0.5
 
