@@ -21,5 +21,4 @@ class TicketStatus(str, enum.Enum):
     in_progress = "in_progress"
     pending = "pending"
     resolved = "resolved"
-    unresolved = "unresolved"
     closed = "closed"

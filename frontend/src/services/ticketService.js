@@ -80,3 +80,32 @@ export async function getSuggestedReply() {
 export async function getTicketEvents() {
   return [];
 }
+
+// --- CSAT Rating (Feature 4) ---
+// POST /tickets/{id}/rating — stubs call and persists locally if backend is unavailable
+export async function rateTicket(ticketId, ratingData) {
+  try {
+    const { data } = await api.post(`/tickets/${ticketId}/rating`, ratingData);
+    return data;
+  } catch (err) {
+    // Note: Backend /tickets/{id}/rating endpoint pending. Fallback to local storage persistence.
+    console.info(`[ticketService] POST /tickets/${ticketId}/rating fallback:`, ratingData);
+    const existingRatings = JSON.parse(localStorage.getItem("deskwise_ticket_ratings") || "{}");
+    existingRatings[ticketId] = { ...ratingData, created_at: new Date().toISOString() };
+    localStorage.setItem("deskwise_ticket_ratings", JSON.stringify(existingRatings));
+    return { success: true, local: true };
+  }
+}
+
+// --- Canned Replies (Feature 5) ---
+// GET /agents/canned-replies — fetches from backend with fallback to CANNED_REPLIES
+export async function getCannedReplies() {
+  try {
+    const { data } = await api.get("/agents/canned-replies");
+    if (Array.isArray(data) && data.length > 0) return data;
+  } catch {
+    // Backend endpoint pending — fall back to hardcoded templates
+  }
+  const { CANNED_REPLIES } = await import("../utils/cannedReplies");
+  return CANNED_REPLIES;
+}

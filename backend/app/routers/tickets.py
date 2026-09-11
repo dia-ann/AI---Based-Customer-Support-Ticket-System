@@ -22,9 +22,7 @@ from datetime import datetime, timedelta
 router = APIRouter(prefix="/tickets", tags=["Tickets"])
 crud = CRUDBase(Ticket)
 
-# ── helpers ──────────────────────────────────────────────────────────
 CustomerUser = aliased(User, name="customer_user")
-
 
 def _ticket_to_read(ticket: Ticket, customer_email: str | None, sla_due_at=None) -> dict:
     """Build a TicketRead-compatible dict from a Ticket ORM object + joined fields."""
@@ -45,9 +43,6 @@ def _ticket_to_read(ticket: Ticket, customer_email: str | None, sla_due_at=None)
         created_at=ticket.created_at,
         updated_at=ticket.updated_at,
     )
-
-
-# ── CRUD ─────────────────────────────────────────────────────────────
 
 @router.post("/", response_model=TicketRead, status_code=201)
 async def create_ticket(payload: TicketCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):

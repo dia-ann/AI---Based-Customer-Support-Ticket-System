@@ -1,6 +1,7 @@
 // frontend/src/App.jsx
 import { Navigate, Route, Routes } from "react-router-dom";
 import { ToastProvider } from "./components/common/Toast";
+import { NotificationProvider } from "./context/NotificationContext";
 import ProtectedRoute from "./components/common/ProtectedRoute";
 import Navbar from "./components/common/Navbar";
 import AdminLayout from "./components/common/AdminLayout";
@@ -9,6 +10,8 @@ import { useAuth } from "./hooks/useAuth";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
+import ChangePassword from "./pages/ChangePassword";
+import FAQ from "./pages/FAQ";
 import NewTicket from "./pages/customer/NewTicket";
 import CustomerTicketDetail from "./pages/customer/TicketDetail";
 import MyTickets from "./pages/customer/MyTickets";
@@ -16,7 +19,7 @@ import AgentDashboard from "./pages/agent/Dashboard";
 import TicketDetail from "./pages/agent/TicketDetail";
 import Analytics from "./pages/admin/Analytics";
 import Settings from "./pages/admin/Settings";
-import AgentPanel from "./pages/admin/AgentPanel"; // <--- ADD THIS IMPORT
+import AgentPanel from "./pages/admin/AgentPanel";
 
 function AppLayout({ children }) {
   return (
@@ -45,100 +48,108 @@ export default function App() {
   return (
     <div className="bg-gray-900">
       <ToastProvider>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
+        <NotificationProvider>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/faq" element={<FAQ />} />
 
-          {/* Customer routes */}
-          <Route element={<ProtectedRoute allowedRoles={["customer"]} />}>
-            <Route
-              path="/tickets/new"
-              element={
-                <AppLayout>
-                  <NewTicket />
-                </AppLayout>
-              }
-            />
+            {/* Signed in, but still on temporary password */}
+            <Route element={<ProtectedRoute bypassPasswordGate />}>
+              <Route path="/change-password" element={<ChangePassword />} />
+            </Route>
 
-            <Route
-              path="/tickets/:ticketId"
-              element={
-                <AppLayout>
-                  <CustomerTicketDetail />
-                </AppLayout>
-              }
-            />
+            {/* Customer routes */}
+            <Route element={<ProtectedRoute allowedRoles={["customer"]} />}>
+              <Route
+                path="/tickets/new"
+                element={
+                  <AppLayout>
+                    <NewTicket />
+                  </AppLayout>
+                }
+              />
 
-            <Route
-              path="/tickets"
-              element={
-                <AppLayout>
-                  <MyTickets />
-                </AppLayout>
-              }
-            />
-          </Route>
+              <Route
+                path="/tickets/:ticketId"
+                element={
+                  <AppLayout>
+                    <CustomerTicketDetail />
+                  </AppLayout>
+                }
+              />
 
-          {/* Agent routes */}
-          <Route element={<ProtectedRoute allowedRoles={["agent", "admin"]} />}>
-            <Route
-              path="/agent/dashboard"
-              element={
-                <RoleBasedLayout>
-                  <AgentDashboard />
-                </RoleBasedLayout>
-              }
-            />
+              <Route
+                path="/tickets"
+                element={
+                  <AppLayout>
+                    <MyTickets />
+                  </AppLayout>
+                }
+              />
+            </Route>
 
-            <Route
-              path="/agent/tickets/:ticketId"
-              element={
-                <RoleBasedLayout>
-                  <TicketDetail />
-                </RoleBasedLayout>
-              }
-            />
-          </Route>
+            {/* Agent routes */}
+            <Route element={<ProtectedRoute allowedRoles={["agent", "admin"]} />}>
+              <Route
+                path="/agent/dashboard"
+                element={
+                  <RoleBasedLayout>
+                    <AgentDashboard />
+                  </RoleBasedLayout>
+                }
+              />
 
-          {/* Admin routes */}
-          <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
-            <Route
-              path="/admin/analytics"
-              element={
-                <AdminLayout>
-                  <Analytics />
-                </AdminLayout>
-              }
-            />
+              <Route
+                path="/agent/tickets/:ticketId"
+                element={
+                  <RoleBasedLayout>
+                    <TicketDetail />
+                  </RoleBasedLayout>
+                }
+              />
+            </Route>
 
-            <Route
-              path="/admin/settings"
-              element={
-                <AdminLayout>
-                  <Settings />
-                </AdminLayout>
-              }
-            />
+            {/* Admin routes */}
+            <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
+              <Route
+                path="/admin/analytics"
+                element={
+                  <AdminLayout>
+                    <Analytics />
+                  </AdminLayout>
+                }
+              />
 
-            {/* ---> ADD NEW TRIAGE ROUTE HERE <--- */}
-            <Route
-              path="/admin/triage"
-              element={
-                <AdminLayout>
-                  <AgentPanel />
-                </AdminLayout>
-              }
-            />
-          </Route>
+              <Route
+                path="/admin/settings"
+                element={
+                  <AdminLayout>
+                    <Settings />
+                  </AdminLayout>
+                }
+              />
 
-          {/* Fallback: send logged-in users to their home, others to login */}
-          <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<HomeRedirect />} />
-          </Route>
+              <Route
+                path="/admin/triage"
+                element={
+                  <AdminLayout>
+                    <AgentPanel />
+                  </AdminLayout>
+                }
+              />
+            </Route>
 
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+            {/* Fallback: send logged-in users to their home, others to login */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/" element={<HomeRedirect />} />
+            </Route>
+
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </NotificationProvider>
       </ToastProvider>
     </div>
   );

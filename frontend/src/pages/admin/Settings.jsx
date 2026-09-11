@@ -1,13 +1,13 @@
+// frontend/src/pages/admin/Settings.jsx
 import { useState, useEffect, useMemo } from "react";
 import * as adminService from "../../services/adminService";
+import AgentInvite from "../../components/admin/AgentInvite";
 
 export default function Settings() {
   const [users, setUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [slaPolicies, setSlaPolicies] = useState([]);
 
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteDepartment, setInviteDepartment] = useState("");
   const [newDepartment, setNewDepartment] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -41,21 +41,13 @@ export default function Settings() {
   }, []);
 
   // INVITE USER
-  const handleInvite = async () => {
-    if (!inviteEmail.trim()) return;
-    try {
-      const invitedUser = await adminService.inviteUser(
-        inviteEmail,
-        inviteDepartment || null,
-      );
-      setUsers((prev) => [...prev, invitedUser]);
-      setInviteEmail("");
-      setInviteDepartment(""); // Reset
-      alert(`Successfully sent invitation to ${invitedUser.email}`);
-    } catch (err) {
-      console.error("Invite user failed", err);
-      alert(err.response?.data?.detail || "Failed to invite user");
-    }
+  const handleInvited = (invitedUser) => {
+    setUsers((prev) => {
+      const exists = prev.some((u) => u.id === invitedUser.id);
+      return exists
+        ? prev.map((u) => (u.id === invitedUser.id ? invitedUser : u))
+        : [...prev, invitedUser];
+    });
   };
 
   // UPDATE ASSIGNMENT — maps dropdown value to { role, department_id }
@@ -168,40 +160,15 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* USER MANAGEMENT */}
+      {/* AGENT INVITE */}
+      <AgentInvite departments={departments} onInvited={handleInvited} />
+
+      {/* TEAM MEMBERS */}
       <div className="bg-[#11131a] border border-[#232632] rounded-[12px] p-5 mb-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="font-semibold text-[14px]">
-            User Management ({users.length})
+            Team Members ({users.length})
           </h2>
-        </div>
-
-        <div className="flex gap-2 mb-4">
-          <input
-            value={inviteEmail}
-            onChange={(e) => setInviteEmail(e.target.value)}
-            placeholder="Enter email to invite"
-            className="bg-[#0a0c10] border border-[#232632] rounded-[8px] px-3 py-2 text-[12px] w-[280px] outline-none"
-          />
-
-          <select
-            value={inviteDepartment}
-            onChange={(e) => setInviteDepartment(e.target.value)}
-            className="bg-[#0a0c10] border border-[#232632] rounded-[8px] px-3 py-2 text-[12px] outline-none"
-          >
-            <option value="">Select Department (Optional)</option>
-            {departments.map((dept) => (
-              <option key={dept.id} value={dept.id}>
-                {dept.name}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={handleInvite}
-            className="bg-[#fbbf24] text-black text-[12px] px-4 py-2 rounded-[8px] font-semibold"
-          >
-            + Invite
-          </button>
         </div>
 
         {users.length === 0 ? (
