@@ -4,6 +4,7 @@ import { STATUS_COLORS } from "../../utils/constants";
 import { formatRelativeTime } from "../../utils/formatters";
 import RatingModal from "./RatingModal";
 
+
 export default function TicketStatus({ ticket }) {
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
 
@@ -13,7 +14,7 @@ export default function TicketStatus({ ticket }) {
         <div>
           <h3 className="font-semibold text-white">{ticket.subject}</h3>
           <p className="mt-1 text-sm text-gray-500">
-            Ticket #{ticket.id} • Opened {formatRelativeTime(ticket.created_at)}
+            Ticket #{ticket.id?.slice(0, 8).toUpperCase()} • Opened {formatRelativeTime(ticket.created_at)}
           </p>
         </div>
       </div>
