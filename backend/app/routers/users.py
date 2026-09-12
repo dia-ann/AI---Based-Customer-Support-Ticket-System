@@ -46,7 +46,6 @@ def generate_temp_password(length: int = 16) -> str:
 
 def _find_auth_user_id_by_email(email: str) -> str | None:
     """Page through Supabase Auth looking for an existing account.
-
     Needed because `create_user` fails when the address already exists in
     auth.users, and the Table Editor never shows that schema.
     """
@@ -197,7 +196,7 @@ async def invite_agent(
         )
     except Exception as exc:
         email_sent = False
-        logger.warning("Brevo SMTP send failed for %s: %s", email, exc)
+        logger.warning("Brevo email send failed for %s: %s", email, exc)
 
     detail = (
         f"Invitation emailed to {email}"
