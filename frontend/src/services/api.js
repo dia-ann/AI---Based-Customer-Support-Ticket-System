@@ -11,8 +11,11 @@ const NO_REDIRECT_ON_401 = [
   "/auth/login",
   "/auth/signup",
   "/auth/forgot-password",
+  "/auth/verify-reset-token",
+  "/auth/reset-password",
   "/auth/change-password",
 ];
+
 
 // Attach the JWT to every outgoing request, if we have one
 api.interceptors.request.use((config) => {
