@@ -1,7 +1,15 @@
 import { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, Paperclip, FileText, Lock, User, ShieldAlert } from "lucide-react";
+import { useParams, useNavigate } from "react-router-dom";
+import {
+  ArrowLeft,
+  Paperclip,
+  FileText,
+  Lock,
+  User,
+  ShieldAlert,
+} from "lucide-react";
 import { useTicketDetail } from "../../hooks/useTickets";
+import { useAuth } from "../../hooks/useAuth";
 import ReplyBox from "../../components/agent/ReplyBox";
 import SLAWatcher from "../../components/agent/SLAWatcher";
 import Loader from "../../components/common/Loader";
@@ -12,6 +20,8 @@ import { STATUS_COLORS } from "../../utils/constants";
 
 export default function TicketDetail() {
   const { ticketId } = useParams();
+  const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const { ticket, loading, refetch } = useTicketDetail(ticketId);
   const [replies, setReplies] = useState([]);
   const [repliesLoading, setRepliesLoading] = useState(true);
@@ -37,19 +47,27 @@ export default function TicketDetail() {
     refetch();
   }
 
+  function handleBack() {
+    if (window.history?.state?.idx > 0) {
+      navigate(-1);
+    } else {
+      navigate(isAdmin ? "/admin/triage" : "/agent/dashboard");
+    }
+  }
+
   if (loading || !ticket) return <Loader fullScreen />;
 
   return (
     <div className="min-h-screen w-full bg-surface-bg mx-auto max-w-4xl px-4 py-8">
       {/* Back button */}
-      <Link
-        to="/agent/dashboard"
-        className="mb-4 inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-accent transition-colors"
+      <button
+        type="button"
+        onClick={handleBack}
+        className="mb-4 inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-accent transition-colors cursor-pointer"
       >
         <ArrowLeft className="h-4 w-4" />
-        <span>Back to Queue</span>
-      </Link>
-
+        <span>{isAdmin ? "Back to Tickets Panel" : "Back to Queue"}</span>
+      </button>
       {/* Header */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -58,14 +76,15 @@ export default function TicketDetail() {
             <span
               className={clsx(
                 "rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize",
-                STATUS_COLORS[ticket.status]
+                STATUS_COLORS[ticket.status],
               )}
             >
               {ticket.status?.replace("_", " ")}
             </span>
           </div>
           <p className="mt-1 text-sm text-gray-400">
-            Ticket #{ticket.id} • Customer: {ticket.customer_name || ticket.customer_email || "Customer"}
+            Ticket #{ticket.id} • Customer:{" "}
+            {ticket.customer_name || ticket.customer_email || "Customer"}
           </p>
         </div>
 
@@ -117,7 +136,9 @@ export default function TicketDetail() {
                 >
                   <FileText className="h-4 w-4 text-accent" />
                   <span>{file.name || `Attachment-${idx + 1}`}</span>
-                  {file.size && <span className="text-gray-500">({file.size})</span>}
+                  {file.size && (
+                    <span className="text-gray-500">({file.size})</span>
+                  )}
                 </div>
               ))}
             </div>
@@ -149,7 +170,7 @@ export default function TicketDetail() {
                   "rounded-xl border p-4.5 transition-colors",
                   isNote
                     ? "border-yellow-500/30 bg-yellow-500/5 ml-6"
-                    : "border-surface-border bg-surface-card"
+                    : "border-surface-border bg-surface-card",
                 )}
               >
                 <div className="flex items-center justify-between text-xs mb-2">

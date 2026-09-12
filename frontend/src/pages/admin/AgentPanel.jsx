@@ -79,7 +79,7 @@ export default function AgentPanel() {
       <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold text-white">
-            Admin Triage Panel
+            Ticket Triage Panel
           </h1>
           <p className="text-sm text-gray-400 mt-1">
             Manage unrouted tickets or track assigned ones.

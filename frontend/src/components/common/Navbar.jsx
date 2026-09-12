@@ -1,14 +1,23 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Bell, CheckCheck, HelpCircle, Ticket, Clock, ExternalLink } from "lucide-react";
+import {
+  Bell,
+  CheckCheck,
+  HelpCircle,
+  Ticket,
+  Clock,
+  ExternalLink,
+} from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { useNotifications } from "../../context/NotificationContext";
 import Button from "./Button";
 import { formatRelativeTime } from "../../utils/formatters";
+import Logo from "./Logo";
 
 export default function Navbar() {
   const { user, logout, isAgent, isAdmin, isCustomer, homeRoute } = useAuth();
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead } =
+    useNotifications();
   const [showNotifications, setShowNotifications] = useState(false);
   const notifMenuRef = useRef(null);
   const navigate = useNavigate();
@@ -43,20 +52,35 @@ export default function Navbar() {
   return (
     <header className="flex items-center justify-between border-b border-surface-border bg-surface-card px-6 py-3">
       <div className="flex items-center gap-6">
-        <Link to={homeRoute} className="text-lg font-bold text-white tracking-tight">
+        <Link
+          to={homeRoute}
+          className="flex items-center gap-2 text-lg font-bold text-white tracking-tight hover:opacity-90 transition-opacity"
+        >
+          <div className="w-7 h-7 bg-[#12131a] rounded-lg flex items-center justify-center">
+            <Logo size={20} />
+          </div>
           Desk<span className="text-accent">wise</span>
         </Link>
 
         <nav className="flex items-center gap-4 text-xs font-medium text-gray-300">
           {isCustomer && (
             <>
-              <Link to="/tickets/new" className="hover:text-accent transition-colors">
+              <Link
+                to="/tickets/new"
+                className="hover:text-accent transition-colors"
+              >
                 New Ticket
               </Link>
-              <Link to="/tickets" className="hover:text-accent transition-colors">
+              <Link
+                to="/tickets"
+                className="hover:text-accent transition-colors"
+              >
                 My Tickets
               </Link>
-              <Link to="/faq" className="hover:text-accent transition-colors flex items-center gap-1 text-gray-400">
+              <Link
+                to="/faq"
+                className="hover:text-accent transition-colors flex items-center gap-1 text-gray-400"
+              >
                 <HelpCircle className="h-3.5 w-3.5" />
                 <span>FAQ</span>
               </Link>
@@ -64,10 +88,16 @@ export default function Navbar() {
           )}
           {isAgent && (
             <>
-              <Link to="/agent/dashboard" className="hover:text-accent transition-colors">
+              <Link
+                to="/agent/dashboard"
+                className="hover:text-accent transition-colors"
+              >
                 Queue
               </Link>
-              <Link to="/faq" className="hover:text-accent transition-colors flex items-center gap-1 text-gray-400">
+              <Link
+                to="/faq"
+                className="hover:text-accent transition-colors flex items-center gap-1 text-gray-400"
+              >
                 <HelpCircle className="h-3.5 w-3.5" />
                 <span>FAQ</span>
               </Link>
@@ -75,13 +105,22 @@ export default function Navbar() {
           )}
           {isAdmin && (
             <>
-              <Link to="/admin/analytics" className="hover:text-accent transition-colors">
+              <Link
+                to="/admin/analytics"
+                className="hover:text-accent transition-colors"
+              >
                 Analytics
               </Link>
-              <Link to="/admin/triage" className="hover:text-accent transition-colors">
-                Triage
+              <Link
+                to="/admin/triage"
+                className="hover:text-accent transition-colors"
+              >
+                Ticket Panel
               </Link>
-              <Link to="/admin/settings" className="hover:text-accent transition-colors">
+              <Link
+                to="/admin/settings"
+                className="hover:text-accent transition-colors"
+              >
                 Settings
               </Link>
             </>
@@ -177,7 +216,11 @@ export default function Navbar() {
         <span className="hidden sm:inline-block text-xs text-gray-400">
           {user?.email}
         </span>
-        <Button variant="secondary" onClick={handleLogout} className="text-xs px-3 py-1.5">
+        <Button
+          variant="secondary"
+          onClick={handleLogout}
+          className="text-xs px-3 py-1.5"
+        >
           Log out
         </Button>
       </div>
