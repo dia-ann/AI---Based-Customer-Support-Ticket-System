@@ -7,14 +7,23 @@ export default function Analytics() {
   const { showToast } = useToast();
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [dateRange, setDateRange] = useState("all"); // "week" | "month" | "all"
 
   useEffect(() => {
-    loadAnalytics();
+    loadAnalytics(true);
+
+    // Real-time polling: refresh analytics data silently every 10 seconds
+    const interval = setInterval(() => {
+      loadAnalytics(false);
+    }, 10000);
+
+    return () => clearInterval(interval);
   }, [dateRange]);
 
-  async function loadAnalytics() {
-    setLoading(true);
+  async function loadAnalytics(isInitial = false) {
+    if (isInitial) setLoading(true);
+    else setIsRefreshing(true);
     try {
       const data = await adminService.getAnalyticsOverview({
         date_range: dateRange !== "all" ? dateRange : undefined,
@@ -23,11 +32,12 @@ export default function Analytics() {
     } catch (err) {
       console.error("Failed to load analytics data", err);
     } finally {
-      setLoading(false);
+      if (isInitial) setLoading(false);
+      else setIsRefreshing(false);
     }
   }
 
-  // Feature 7: Export CSV client-side using Blob API
+  // Export CSV client-side using Blob API
   function handleExportCSV() {
     if (!analytics) return;
 
@@ -113,7 +123,7 @@ export default function Analytics() {
       <div className="min-h-screen bg-[#0a0c10] flex flex-col items-center justify-center text-red-400 text-[13px] gap-3">
         <span>Failed to load analytics data.</span>
         <button
-          onClick={loadAnalytics}
+          onClick={() => loadAnalytics(true)}
           className="rounded-lg bg-surface-card border border-surface-border px-3 py-1.5 text-xs text-gray-200 hover:text-white"
         >
           Retry
@@ -139,6 +149,36 @@ export default function Analytics() {
     !isNaN(Number(csatRaw));
   const csatScore = hasCsatData ? Number(csatRaw).toFixed(1) : null;
 
+  // Real-time pure JS conic gradient calculation for By Status donut chart
+  const statusColors = {
+    open: "#fbbf24",
+    in_progress: "#3b82f6",
+    pending: "#a78bfa",
+    resolved: "#34d399",
+    closed: "#6b7280",
+  };
+
+  let cumulative = 0;
+  const slices = [];
+  (analytics.tickets_by_status || []).forEach((s) => {
+    if (s.count > 0 && analytics.total_tickets > 0) {
+      const start = cumulative;
+      const pct = (s.count / analytics.total_tickets) * 100;
+      cumulative += pct;
+      const color = statusColors[s.name] || "#6b7280";
+      slices.push(`${color} ${start.toFixed(1)}% ${cumulative.toFixed(1)}%`);
+    }
+  });
+
+  if (cumulative < 100 && slices.length > 0) {
+    slices.push(`#232632 ${cumulative.toFixed(1)}% 100%`);
+  }
+
+  const statusProgressGradient =
+    slices.length > 0
+      ? `conic-gradient(${slices.join(", ")})`
+      : "conic-gradient(#232632 0% 100%)";
+
   return (
     <div className="min-h-screen bg-[#0a0c10] text-white p-6 sm:p-8">
       {/* Header & Controls */}
@@ -151,7 +191,7 @@ export default function Analytics() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          {/* Date Range Selector (Feature 7) */}
+          {/* Date Range Selector */}
           <div className="flex items-center rounded-xl border border-[#232632] bg-[#141824] p-1">
             <button
               onClick={() => setDateRange("week")}
@@ -185,7 +225,7 @@ export default function Analytics() {
             </button>
           </div>
 
-          {/* Export CSV Button (Feature 7) */}
+          {/* Export CSV Button */}
           <button
             onClick={handleExportCSV}
             className="flex items-center gap-1.5 rounded-xl border border-[#232632] bg-[#181b26] px-3.5 py-2 text-xs font-semibold text-gray-200 hover:border-[#f2b705] hover:text-[#f2b705] transition-colors"
@@ -283,39 +323,67 @@ export default function Analytics() {
 
         {/* Tickets by Status */}
         <div className="bg-[#181b26] border border-[#232632] rounded-[16px] p-6">
-          <h3 className="font-semibold text-[15px] mb-6">By Status</h3>
-          <div className="flex justify-center my-4">
-            <div className="w-32 h-32 rounded-full border-[8px] border-[#fbbf24] border-r-[#3b82f6] border-b-[#34d399] border-l-[#232632] flex items-center justify-center shadow-lg">
-              <span className="text-[14px] font-bold text-center">
-                {analytics.open_count || 0} Open
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="font-semibold text-[15px]">By Status</h3>
+            <div className="flex items-center gap-1.5 text-[11px] text-emerald-400">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
+              <span>Live</span>
             </div>
           </div>
-          <div className="space-y-3 mt-6 text-[13px]">
+
+          {/* Dynamic Real-Time Donut Ring */}
+          <div className="flex justify-center my-4">
+            <div
+              className="w-32 h-32 rounded-full p-2.5 flex items-center justify-center transition-all duration-700 shadow-lg"
+              style={{ background: statusProgressGradient }}
+            >
+              <div className="w-full h-full rounded-full bg-[#181b26] flex flex-col items-center justify-center">
+                <span className="text-[18px] font-bold text-white leading-tight">
+                  {analytics.open_count || 0}
+                </span>
+                <span className="text-[11px] text-[#9ca3af] font-medium">Open</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Status list with real-time horizontal progress bars */}
+          <div className="space-y-3.5 mt-6 text-[13px]">
             {analytics.tickets_by_status?.map((s) => {
-              const statusColors = {
+              const statusColorsMap = {
                 open: "bg-[#fbbf24]",
                 in_progress: "bg-[#3b82f6]",
                 pending: "bg-[#a78bfa]",
                 resolved: "bg-[#34d399]",
                 closed: "bg-[#6b7280]",
               };
-              const color = statusColors[s.name] || "bg-gray-400";
+              const color = statusColorsMap[s.name] || "bg-gray-400";
               const percent =
                 analytics.total_tickets > 0
                   ? Math.round((s.count / analytics.total_tickets) * 100)
                   : 0;
               return (
-                <div className="flex justify-between" key={s.name}>
-                  <span className="flex items-center gap-2">
-                    <span className={`w-2 h-2 ${color} rounded-full`}></span>
-                    <span className="text-gray-300 capitalize">
-                      {s.name.replace("_", " ")}
+                <div className="space-y-1.5" key={s.name}>
+                  <div className="flex justify-between items-center">
+                    <span className="flex items-center gap-2">
+                      <span className={`w-2 h-2 ${color} rounded-full`}></span>
+                      <span className="text-gray-300 capitalize font-medium">
+                        {s.name.replace("_", " ")}
+                      </span>
                     </span>
-                  </span>
-                  <span className="text-gray-400">
-                    {percent}% ({s.count})
-                  </span>
+                    <span className="text-gray-400">
+                      {percent}% ({s.count})
+                    </span>
+                  </div>
+                  {/* Real-time horizontal status progress bar */}
+                  <div className="h-1.5 bg-[#0f1117] rounded-full overflow-hidden">
+                    <div
+                      className={`h-full ${color} rounded-full transition-all duration-500`}
+                      style={{ width: `${percent}%` }}
+                    />
+                  </div>
                 </div>
               );
             })}
@@ -347,12 +415,14 @@ export default function Analytics() {
                   </td>
                 </tr>
               ) : (
-                                analytics.agent_performance.map((agent) => (
+                analytics.agent_performance.map((agent) => (
                   <tr
                     key={agent.id}
                     className="border-b border-[#232632] last:border-0 hover:bg-surface-hover/30"
                   >
-                    <td className="py-3 font-medium text-white">{agent.name}</td>
+                    <td className="py-3 font-medium text-white">
+                      {agent.name}
+                    </td>
                     <td className="py-3">{agent.unresolved_count}</td>
                     <td className="py-3">{agent.closed_count}</td>
                     <td className="py-3">{agent.avg_time}</td>

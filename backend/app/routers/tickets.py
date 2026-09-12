@@ -187,19 +187,27 @@ async def get_analytics(db: AsyncSession = Depends(get_db), current_user: User =
     csat = round(float(csat_val), 1) if csat_val is not None else None
 
     # 5. Agent Performance
+        # 5. Agent Performance
     agent_query = (
         select(
             User.id,
             User.email,
             sa_func.sum(case((Ticket.status.notin_([TicketStatus.resolved, TicketStatus.closed]), 1), else_=0)),
-            sa_func.sum(case((Ticket.status == TicketStatus.closed, 1), else_=0)),
+            sa_func.sum(case((Ticket.status == TicketStatus.closed, 1), else_=0)).label("closed_count"),
             sa_func.avg(TicketRating.rating)
         )
         .select_from(Ticket)
         .join(User, Ticket.assigned_agent_id == User.id)
         .outerjoin(TicketRating, TicketRating.ticket_id == Ticket.id)
+        .where(
+            User.role == UserRole.agent,
+            User.must_change_password.is_(False),  # Exclude agents still in invited/pending state
+        )
         .group_by(User.id, User.email)
+        .having(sa_func.sum(case((Ticket.status == TicketStatus.closed, 1), else_=0)) > 0)  # Optional: only show agents with closed tickets
+        .order_by(sa_func.sum(case((Ticket.status == TicketStatus.closed, 1), else_=0)).desc())
     )
+
     agent_rows = (await db.execute(agent_query)).all()
     
     agent_performance = []

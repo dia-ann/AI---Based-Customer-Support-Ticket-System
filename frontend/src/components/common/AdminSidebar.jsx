@@ -1,14 +1,17 @@
 import { useState, useRef, useEffect } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import { Bell, CheckCheck, Ticket, LogOut } from "lucide-react";
 import { useNotifications } from "../../context/NotificationContext";
 import { formatRelativeTime } from "../../utils/formatters";
+import { useAuth } from "../../hooks/useAuth";
 
 export default function AdminSidebar() {
   const navigate = useNavigate();
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead } =
+    useNotifications();
   const [showNotifications, setShowNotifications] = useState(false);
   const notifMenuRef = useRef(null);
+  const { homeRoute } = useAuth();
 
   // Close notifications on outside click
   useEffect(() => {
@@ -34,7 +37,10 @@ export default function AdminSidebar() {
       <div className="p-4">
         {/* Brand & Notification Header */}
         <div className="flex items-center justify-between px-2 py-2 mb-8">
-          <div className="flex items-center gap-3">
+          <Link
+            to={homeRoute || "/admin/analytics"}
+            className="flex items-center gap-3 hover:opacity-90 transition-opacity cursor-pointer"
+          >
             <div className="w-9 h-9 bg-[#12131a] rounded-xl flex items-center justify-center">
               <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
                 <path
@@ -79,7 +85,7 @@ export default function AdminSidebar() {
               </svg>
             </div>
             <span className="text-white font-bold text-[18px]">Deskwise</span>
-          </div>
+          </Link>
 
           {/* Bell Icon in Admin Sidebar (Feature 8) */}
           <div className="relative" ref={notifMenuRef}>
@@ -175,7 +181,7 @@ export default function AdminSidebar() {
               `block px-4 py-2.5 rounded-xl text-[13px] ${isActive ? "bg-[#f2b705] text-black font-medium" : "text-gray-400 hover:text-white"}`
             }
           >
-            Agent Panel
+            Tickets Panel
           </NavLink>
           <NavLink
             to="/admin/settings"
