@@ -1,7 +1,8 @@
-"""Outbound email via Gmail SMTP (stdlib smtplib — no extra dependency).
+"""Outbound email via Brevo REST API or SMTP Relay.
 
-Uses Gmail's SMTP server with an App Password.
-SMTP_USER must be a Gmail address with 2FA enabled and an App Password generated.
+Prefers the Brevo HTTP API (https://api.brevo.com/v3/smtp/email) via httpx
+to avoid SMTP port blocking and '525 Unauthorized IP address' restrictions.
+Falls back to Brevo SMTP Relay if BREVO_API_KEY is not configured.
 """
 from __future__ import annotations
 
@@ -11,19 +12,50 @@ import ssl
 from email.message import EmailMessage
 from email.utils import formataddr, make_msgid
 
+import httpx
+
 from backend.app.config import settings
 
 logger = logging.getLogger(__name__)
 
+BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
+
 
 class MailNotConfiguredError(RuntimeError):
-    """Raised when SMTP credentials are missing."""
+    """Raised when neither Brevo API key nor SMTP credentials are provided."""
 
 
-def _client() -> smtplib.SMTP:
+def _send_via_brevo_api(to: str, subject: str, text_body: str, html_body: str | None = None) -> None:
+    headers = {
+        "accept": "application/json",
+        "api-key": settings.BREVO_API_KEY,
+        "content-type": "application/json",
+    }
+    payload = {
+        "sender": {
+            "name": settings.MAIL_FROM_NAME,
+            "email": settings.MAIL_FROM,
+        },
+        "to": [{"email": to}],
+        "subject": subject,
+        "textContent": text_body,
+    }
+    if html_body:
+        payload["htmlContent"] = html_body
+    if settings.MAIL_REPLY_TO:
+        payload["replyTo"] = {"email": settings.MAIL_REPLY_TO}
+
+    with httpx.Client(timeout=15.0) as client:
+        response = client.post(BREVO_API_URL, headers=headers, json=payload)
+        if response.is_error:
+            logger.error("Brevo API error (%s): %s", response.status_code, response.text)
+            response.raise_for_status()
+
+
+def _smtp_client() -> smtplib.SMTP:
     if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
         raise MailNotConfiguredError(
-            "SMTP_USER / SMTP_PASSWORD are not set in .env"
+            "Neither BREVO_API_KEY nor SMTP_USER/SMTP_PASSWORD are set in .env"
         )
     context = ssl.create_default_context()
     smtp = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=20)
@@ -36,6 +68,12 @@ def _client() -> smtplib.SMTP:
 
 def send_email(to: str, subject: str, text_body: str, html_body: str | None = None) -> None:
     """Blocking. Call from FastAPI via run_in_threadpool(...)."""
+    if settings.BREVO_API_KEY:
+        _send_via_brevo_api(to, subject, text_body, html_body)
+        logger.info("Email sent via Brevo API to %s", to)
+        return
+
+    # Fallback to SMTP
     msg = EmailMessage()
     msg["Subject"] = subject
     msg["From"] = formataddr((settings.MAIL_FROM_NAME, settings.MAIL_FROM))
@@ -47,9 +85,9 @@ def send_email(to: str, subject: str, text_body: str, html_body: str | None = No
     if html_body:
         msg.add_alternative(html_body, subtype="html")
 
-    with _client() as smtp:
+    with _smtp_client() as smtp:
         smtp.send_message(msg)
-    logger.info("Invitation email sent to %s", to)
+    logger.info("Email sent via Brevo SMTP to %s", to)
 
 
 def send_agent_invite_email(
