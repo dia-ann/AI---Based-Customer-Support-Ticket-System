@@ -181,10 +181,10 @@ async def get_analytics(db: AsyncSession = Depends(get_db), current_user: User =
     dept_rows = (await db.execute(dept_query)).all()
     tickets_by_category = [{"name": r[0], "count": r[1]} for r in dept_rows]
 
-    # 4. CSAT (Average Rating)
+        # 4. CSAT (Average Rating)
     csat_query = select(sa_func.avg(TicketRating.rating)).select_from(TicketRating)
     csat_val = (await db.execute(csat_query)).scalar()
-    csat = round(float(csat_val), 1) if csat_val else "N/A"
+    csat = round(float(csat_val), 1) if csat_val is not None else None
 
     # 5. Agent Performance
     agent_query = (
@@ -192,23 +192,27 @@ async def get_analytics(db: AsyncSession = Depends(get_db), current_user: User =
             User.id,
             User.email,
             sa_func.sum(case((Ticket.status.notin_([TicketStatus.resolved, TicketStatus.closed]), 1), else_=0)),
-            sa_func.sum(case((Ticket.status == TicketStatus.closed, 1), else_=0))
+            sa_func.sum(case((Ticket.status == TicketStatus.closed, 1), else_=0)),
+            sa_func.avg(TicketRating.rating)
         )
         .select_from(Ticket)
         .join(User, Ticket.assigned_agent_id == User.id)
-        .group_by(User.id)
+        .outerjoin(TicketRating, TicketRating.ticket_id == Ticket.id)
+        .group_by(User.id, User.email)
     )
     agent_rows = (await db.execute(agent_query)).all()
     
     agent_performance = []
     for row in agent_rows:
+        agent_rating_val = row[4]
+        agent_rating = round(float(agent_rating_val), 1) if agent_rating_val is not None else None
         agent_performance.append({
             "id": str(row[0]),
             "name": row[1].split('@')[0],
             "unresolved_count": int(row[2] or 0),
             "closed_count": int(row[3] or 0),
             "avg_time": "1h", # Placeholder
-            "rating": csat # Placeholder
+            "rating": agent_rating
         })
 
     return {
@@ -220,7 +224,7 @@ async def get_analytics(db: AsyncSession = Depends(get_db), current_user: User =
         "closed_count": closed_count,
         "open_count": open_count,
         "sla_compliance": {
-            "csat": str(csat)
+            "csat": csat
         },
         "tickets_by_category": tickets_by_category,
         "tickets_by_status": tickets_by_status,

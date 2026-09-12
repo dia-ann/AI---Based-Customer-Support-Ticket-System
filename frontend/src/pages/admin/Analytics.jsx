@@ -48,7 +48,7 @@ export default function Analytics() {
       csv += `Total Tickets,${analytics.total_tickets || 0}\n`;
       csv += `Average Response Time,${analytics.avg_response_label || "N/A"}\n`;
       csv += `Resolution Rate,${resRate}%\n`;
-      csv += `CSAT Score,${analytics.sla_compliance?.csat || "0.0"}/5\n\n`;
+      csv += `CSAT Score,${hasCsatData ? `${csatScore}/5` : "No data"}\n\n`;
 
       csv += "TICKETS BY CATEGORY\n";
       csv += "Category,Ticket Count,Percentage\n";
@@ -86,7 +86,7 @@ export default function Analytics() {
       link.setAttribute("href", url);
       link.setAttribute(
         "download",
-        `deskwise-analytics-${dateRange}-${new Date().toISOString().slice(0, 10)}.csv`
+        `deskwise-analytics-${dateRange}-${new Date().toISOString().slice(0, 10)}.csv`,
       );
       document.body.appendChild(link);
       link.click();
@@ -129,6 +129,15 @@ export default function Analytics() {
     analytics.total_tickets > 0
       ? ((resolvedAndClosed / analytics.total_tickets) * 100).toFixed(1)
       : "0.0";
+  const csatRaw = analytics?.sla_compliance?.csat;
+  const hasCsatData =
+    csatRaw !== null &&
+    csatRaw !== undefined &&
+    csatRaw !== "" &&
+    csatRaw !== "N/A" &&
+    csatRaw !== "No data" &&
+    !isNaN(Number(csatRaw));
+  const csatScore = hasCsatData ? Number(csatRaw).toFixed(1) : null;
 
   return (
     <div className="min-h-screen bg-[#0a0c10] text-white p-6 sm:p-8">
@@ -215,9 +224,15 @@ export default function Analytics() {
           <p className="text-[11px] tracking-widest text-[#9ca3af]">
             CSAT SCORE
           </p>
-          <h2 className="text-[28px] font-bold mt-2 text-[#f2b705]">
-            {analytics.sla_compliance?.csat || "4.8"}/5 ★
-          </h2>
+          {hasCsatData ? (
+            <h2 className="text-[28px] font-bold mt-2 text-[#f2b705]">
+              {csatScore}/5 ★
+            </h2>
+          ) : (
+            <h2 className="text-[20px] font-medium mt-2 text-gray-400">
+              No data
+            </h2>
+          )}
         </div>
       </div>
 
@@ -246,8 +261,12 @@ export default function Analytics() {
                 return (
                   <div key={c.name}>
                     <div className="flex justify-between text-[13px] mb-1.5">
-                      <span className="font-medium text-gray-200">{c.name}</span>
-                      <span className="text-[#9ca3af]">{c.count} tickets ({percent}%)</span>
+                      <span className="font-medium text-gray-200">
+                        {c.name}
+                      </span>
+                      <span className="text-[#9ca3af]">
+                        {c.count} tickets ({percent}%)
+                      </span>
                     </div>
                     <div className="h-2 bg-[#0f1117] rounded-full overflow-hidden">
                       <div
@@ -290,7 +309,9 @@ export default function Analytics() {
                 <div className="flex justify-between" key={s.name}>
                   <span className="flex items-center gap-2">
                     <span className={`w-2 h-2 ${color} rounded-full`}></span>
-                    <span className="text-gray-300 capitalize">{s.name.replace("_", " ")}</span>
+                    <span className="text-gray-300 capitalize">
+                      {s.name.replace("_", " ")}
+                    </span>
                   </span>
                   <span className="text-gray-400">
                     {percent}% ({s.count})
@@ -326,13 +347,27 @@ export default function Analytics() {
                   </td>
                 </tr>
               ) : (
-                analytics.agent_performance.map((agent) => (
-                  <tr key={agent.id} className="border-b border-[#232632] last:border-0 hover:bg-surface-hover/30">
+                                analytics.agent_performance.map((agent) => (
+                  <tr
+                    key={agent.id}
+                    className="border-b border-[#232632] last:border-0 hover:bg-surface-hover/30"
+                  >
                     <td className="py-3 font-medium text-white">{agent.name}</td>
                     <td className="py-3">{agent.unresolved_count}</td>
                     <td className="py-3">{agent.closed_count}</td>
                     <td className="py-3">{agent.avg_time}</td>
-                    <td className="py-3 text-[#fbbf24] font-semibold">{agent.rating} ★</td>
+                    <td className="py-3 text-[#fbbf24] font-semibold">
+                      {agent.rating !== null &&
+                      agent.rating !== undefined &&
+                      agent.rating !== "N/A" &&
+                      !isNaN(Number(agent.rating)) ? (
+                        `${Number(agent.rating).toFixed(1)} ★`
+                      ) : (
+                        <span className="text-gray-500 font-normal">
+                          No data
+                        </span>
+                      )}
+                    </td>
                   </tr>
                 ))
               )}
