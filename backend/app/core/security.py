@@ -102,3 +102,35 @@ def decode_supabase_jwt(token: str) -> dict:
     if not claims.get("sub"):
         raise TokenMissingSubjectError("token has no 'sub' claim")
     return claims
+
+def create_password_reset_token(email: str, user_id: str, expires_minutes: int = 15) -> str:
+    """Generate a signed, single-purpose JWT token for password reset."""
+    now = time.time()
+    payload = {
+        "sub": user_id,
+        "email": email,
+        "purpose": "password_reset",
+        "iat": int(now),
+        "exp": int(now + (expires_minutes * 60)),
+    }
+    return jwt.encode(payload, settings.SUPABASE_JWT_SECRET, algorithm="HS256")
+
+
+def verify_password_reset_token(token: str) -> dict:
+    """Verify the reset token's signature, expiration, and purpose."""
+    try:
+        claims = jwt.decode(
+            token,
+            settings.SUPABASE_JWT_SECRET,
+            algorithms=["HS256"],
+            options={"require_exp": True, "require_sub": True},
+        )
+        if claims.get("purpose") != "password_reset":
+            raise TokenInvalidError("Invalid token purpose")
+        if not claims.get("email") or not claims.get("sub"):
+            raise TokenInvalidError("Token is missing user identification claims")
+        return claims
+    except ExpiredSignatureError as exc:
+        raise TokenExpiredError("Verification link has expired. Please request a new one.") from exc
+    except JWTError as exc:
+        raise TokenInvalidError("Invalid or corrupted verification link.") from exc

@@ -20,6 +20,7 @@ import TicketDetail from "./pages/agent/TicketDetail";
 import Analytics from "./pages/admin/Analytics";
 import Settings from "./pages/admin/Settings";
 import AgentPanel from "./pages/admin/AgentPanel";
+import ResetPassword from "./pages/ResetPassword";
 
 function AppLayout({ children }) {
   return (
@@ -54,6 +55,7 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/faq" element={<FAQ />} />
 
             {/* Signed in, but still on temporary password */}
@@ -92,7 +94,9 @@ export default function App() {
             </Route>
 
             {/* Agent routes */}
-            <Route element={<ProtectedRoute allowedRoles={["agent", "admin"]} />}>
+            <Route
+              element={<ProtectedRoute allowedRoles={["agent", "admin"]} />}
+            >
               <Route
                 path="/agent/dashboard"
                 element={

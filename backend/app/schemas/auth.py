@@ -41,10 +41,19 @@ class ChangePasswordRequest(_NewPasswordMixin):
     """Authenticated change: identity comes from the bearer token."""
 
 
-class ForgotPasswordRequest(_NewPasswordMixin):
-    """Unauthenticated change: caller proves identity with the old password."""
-
+class ForgotPasswordRequest(BaseModel):
+    """Request verification link by providing the registered email."""
     email: EmailStr
+
+
+class ForgotPasswordResponse(BaseModel):
+    message: str = "If an account with this email exists, a verification link has been sent."
+
+
+class ResetPasswordRequest(BaseModel):
+    """Reset password using the token sent to the user's email."""
+    token: str
+    new_password: str = Field(min_length=settings.MIN_PASSWORD_LENGTH, max_length=72)
 
 
 class PasswordChangedResponse(BaseModel):

@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timezone
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -7,8 +8,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
 from backend.app.config import settings
-from backend.app.core.supabase_client import make_anon_client, supabase, supabase_admin
+from backend.app.core import mailer
 from backend.app.core.roles import is_company_domain
+from backend.app.core.security import (
+    TokenExpiredError,
+    TokenInvalidError,
+    create_password_reset_token,
+    verify_password_reset_token,
+)
+from backend.app.core.supabase_client import make_anon_client, supabase, supabase_admin
 from backend.app.database import get_db
 from backend.app.dependencies import get_access_token, get_current_user, get_token_claims
 from backend.app.models.department import Department
@@ -17,9 +25,11 @@ from backend.app.models.user import User
 from backend.app.schemas.auth import (
     ChangePasswordRequest,
     ForgotPasswordRequest,
+    ForgotPasswordResponse,
     LoginRequest,
     PasswordChangedResponse,
     RefreshRequest,
+    ResetPasswordRequest,
     SignUpRequest,
     TokenResponse,
 )
@@ -72,8 +82,11 @@ async def signup(payload: SignUpRequest, db: AsyncSession = Depends(get_db)):
         raise HTTPException(403, "Public signup is disabled. Ask an administrator for an account.")
     
     if is_company_domain(payload.email):
-        domain=payload.email.rsplit("@",1)[-1]
-        raise HTTPException(403,f"User with @{domain} cannot create account here. ""Agent accounts are created by an administrator.",)
+        domain = payload.email.rsplit("@", 1)[-1]
+        raise HTTPException(
+            403,
+            f"User with @{domain} cannot create account here. Agent accounts are created by an administrator.",
+        )
 
     try:
         res = supabase.auth.sign_up({"email": payload.email, "password": payload.password})
@@ -242,18 +255,70 @@ async def change_password(
     return PasswordChangedResponse(message="Password updated")
 
 
-@router.post("/forgot-password", response_model=PasswordChangedResponse)
+@router.post("/forgot-password", response_model=ForgotPasswordResponse)
 async def forgot_password(payload: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
-    """Reset from the login screen using the OLD password (no email link)."""
+    """Send a verification email with a reset link."""
     email = str(payload.email).strip().lower()
-    auth_user = await run_in_threadpool(_verify_password, email, payload.current_password)
-    if auth_user is None:
-        raise HTTPException(401, "Email or current password is incorrect")
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+
+    if user is not None and user.is_active:
+        token = create_password_reset_token(email=user.email, user_id=str(user.id))
+        reset_url = f"{settings.FRONTEND_URL.rstrip('/')}/reset-password?token={token}"
+        try:
+            await run_in_threadpool(
+                mailer.send_password_reset_email,
+                to=user.email,
+                reset_url=reset_url,
+            )
+        except Exception as exc:
+            logger.exception("Failed to send verification email to %s: %s", email, exc)
+            raise HTTPException(500, "Failed to send verification email. Please try again later.")
+
+    return ForgotPasswordResponse(
+        message="If an account with this email exists, a verification link has been sent."
+    )
+
+
+@router.get("/verify-reset-token")
+async def verify_reset_token(token: str):
+    """Verify if the token is valid before displaying the password reset form."""
+    try:
+        claims = verify_password_reset_token(token)
+        return {"valid": True, "email": claims.get("email")}
+    except TokenExpiredError as exc:
+        raise HTTPException(400, str(exc))
+    except TokenInvalidError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@router.post("/reset-password", response_model=PasswordChangedResponse)
+async def reset_password(payload: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
+    """Apply new password using the verified reset token."""
+    try:
+        claims = verify_password_reset_token(payload.token)
+    except TokenExpiredError as exc:
+        raise HTTPException(400, str(exc))
+    except TokenInvalidError as exc:
+        raise HTTPException(400, str(exc))
+
+    user_id = claims.get("sub")
+    try:
+        parsed_id = UUID(user_id)
+    except Exception:
+        raise HTTPException(400, "Invalid user identifier in reset token")
+
+    result = await db.execute(select(User).where(User.id == parsed_id))
+    user = result.scalar_one_or_none()
+    if user is None or not user.is_active:
+        raise HTTPException(404, "User account not found or deactivated")
 
     await _apply_new_password(
         db,
-        auth_user_id=str(auth_user.id),
-        email=email,
+        auth_user_id=str(user.id),
+        email=user.email,
         new_password=payload.new_password,
     )
-    return PasswordChangedResponse(message="Password updated. Sign in with your new password.")
+    return PasswordChangedResponse(
+        message="Password updated successfully. Sign in with your new password."
+    )

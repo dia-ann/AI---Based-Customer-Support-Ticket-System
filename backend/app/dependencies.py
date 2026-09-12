@@ -30,11 +30,14 @@ bearer_scheme = HTTPBearer(
 PASSWORD_CHANGE_EXEMPT_PATHS = {
     "/auth/change-password",
     "/auth/forgot-password",
+    "/auth/reset-password",
+    "/auth/verify-reset-token",
     "/auth/logout",
     "/auth/refresh",
     "/auth/me",
     "/health",
 }
+
 
 def _www_authenticate() -> dict[str, str]:
     return {"WWW-Authenticate": "Bearer"}
