@@ -173,6 +173,7 @@ async def create_ticket(payload: TicketCreate, db: AsyncSession = Depends(get_db
         "classification_confidence": conf_val,
         "status": TicketStatus.open,
     }
+
     ticket = await crud.create(db, data)
     return _ticket_to_read(ticket, current_user.email, attachments=[])
 

@@ -6,7 +6,10 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.concurrency import run_in_threadpool
 
+from backend.app.core.roles import is_company_domain
+from backend.app.core.supabase_client import supabase_admin
 from backend.app.config import settings
 from backend.app.core.security import (
     TokenExpiredError,
@@ -138,9 +141,14 @@ async def get_current_user(
         from backend.app.core.roles import is_company_domain
 
         if is_company_domain(email):
+            # Delete the orphaned auth record in Supabase so an admin can invite them later
+            try:
+                await run_in_threadpool(supabase_admin.auth.admin.delete_user, str(user_id))
+            except Exception as exc:
+                logger.warning("Could not delete uninvited OAuth company user %s from Supabase: %s", email, exc)
             raise HTTPException(
                 status.HTTP_403_FORBIDDEN,
-                "Agent accounts must be created by an administrator.",
+                "Agent accounts must be created by an administrator. Please ask your admin for an invite.",
             )
         user = User(
             id=user_id,

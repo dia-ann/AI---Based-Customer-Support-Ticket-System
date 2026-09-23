@@ -1,145 +1,89 @@
 import json
 import logging
+import os
 from pathlib import Path
+
+from huggingface_hub import InferenceClient
+from huggingface_hub.utils import HfHubHTTPError
+
 from backend.app.ai.redact_pii import redact_pii
 
 logger = logging.getLogger(__name__)
 
-BASE_DIR = Path(__file__).parent / "models"
 CONFIDENCE_THRESHOLD = 0.5
+HF_TIMEOUT = 10
 
-# Lazy-loaded model holders
-_models_loaded = False
-dept_tokenizer = None
-dept_model = None
-priority_tokenizer = None
-priority_model = None
-sentiment_tokenizer = None
-sentiment_model = None
-id_to_dept: dict = {}
-id_to_priority: dict = {}
-id_to_sentiment: dict = {}
+DEPT_REPO = "pratik14212/deskwise-departments"
+PRIORITY_REPO = "pratik14212/deskwise-priorities"
+SENTIMENT_REPO = "pratik14212/deskwise-sentiments"
 
-def _load_models() -> bool:
-    global _models_loaded, dept_tokenizer, dept_model, priority_tokenizer, priority_model
-    global sentiment_tokenizer, sentiment_model, id_to_dept, id_to_priority, id_to_sentiment
+# Load fallback/index label mappings
+MAPPINGS_FILE = Path(__file__).parent / "label_mappings.json"
+id_to_dept: dict[str, str] = {}
+id_to_priority: dict[str, str] = {}
+id_to_sentiment: dict[str, str] = {}
 
-    if _models_loaded:
-        return True
-
+if MAPPINGS_FILE.exists():
     try:
-        import torch
-        from transformers import DistilBertTokenizerFast, DistilBertForSequenceClassification  # type: ignore[import-not-found]
-
-        label_map_file = BASE_DIR.parent / "label_mappings.json"
-        if label_map_file.exists():
-            with open(label_map_file, encoding="utf-8") as f:
-                mappings = json.load(f)
-            id_to_dept = {v: k for k, v in mappings.get("department", {}).items()}
-            id_to_priority = {v: k for k, v in mappings.get("priority", {}).items()}
-            id_to_sentiment = {v: k for k, v in mappings.get("sentiment", {}).items()}
-
-        dept_path = BASE_DIR / "department"
-        if dept_path.exists():
-            dept_tokenizer = DistilBertTokenizerFast.from_pretrained(dept_path)
-            dept_model = DistilBertForSequenceClassification.from_pretrained(dept_path)
-            dept_model.eval()
-
-        priority_path = BASE_DIR / "priority"
-        if priority_path.exists():
-            priority_tokenizer = DistilBertTokenizerFast.from_pretrained(priority_path)
-            priority_model = DistilBertForSequenceClassification.from_pretrained(priority_path)
-            priority_model.eval()
-
-        sentiment_path = BASE_DIR / "sentiment"
-        if not sentiment_path.exists():
-            sentiment_path = BASE_DIR.parent / "model_artifacts"
-        if sentiment_path.exists() and (sentiment_path / "model.safetensors").exists() or (sentiment_path / "pytorch_model.bin").exists() or (sentiment_path / "config.json").exists():
-            sentiment_tokenizer = DistilBertTokenizerFast.from_pretrained(sentiment_path)
-            sentiment_model = DistilBertForSequenceClassification.from_pretrained(sentiment_path)
-            sentiment_model.eval()
-
-        _models_loaded = True
-        logger.info("AI classification models loaded successfully")
-        return True
+        with open(MAPPINGS_FILE, encoding="utf-8") as f:
+            mappings = json.load(f)
+        id_to_dept = {f"LABEL_{v}": k for k, v in mappings.get("department", {}).items()}
+        id_to_dept.update({str(v): k for k, v in mappings.get("department", {}).items()})
+        
+        id_to_priority = {f"LABEL_{v}": k for k, v in mappings.get("priority", {}).items()}
+        id_to_priority.update({str(v): k for k, v in mappings.get("priority", {}).items()})
+        
+        id_to_sentiment = {f"LABEL_{v}": k for k, v in mappings.get("sentiment", {}).items()}
+        id_to_sentiment.update({str(v): k for k, v in mappings.get("sentiment", {}).items()})
     except Exception as exc:
-        logger.warning("AI classification models could not be loaded: %s", exc)
-        return False
+        logger.warning("Could not load label mappings: %s", exc)
 
-def _predict(text: str, tokenizer, model, id_to_label: dict) -> dict:
+_client: InferenceClient | None = None
+
+
+def _get_client() -> InferenceClient:
+    global _client
+    if _client is None:
+        token = os.getenv("HF_TOKEN")
+        if not token:
+            logger.warning("HF_TOKEN not set; calls may hit rate limits or fail on private repos")
+        _client = InferenceClient(provider="hf-inference", token=token, timeout=HF_TIMEOUT)
+    return _client
+
+
+def _predict(text: str, repo_id: str, label_map: dict[str, str], default_label: str) -> dict:
+    """Call HF Inference API text-classification endpoint with label mapping and safe fallbacks."""
     try:
-        import torch
-        if tokenizer is None or model is None:
-            return {"label": "general", "confidence": 0.5, "needs_human_review": True}
-        inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=128)
-        with torch.no_grad():
-            logits = model(**inputs).logits
-        probs = torch.softmax(logits, dim=1)[0]
-        predicted_idx: int = int(torch.argmax(probs).item())
-        confidence = float(probs[predicted_idx].item())  # type: ignore[bad-index]
-        return {
-            "label": id_to_label.get(predicted_idx, "general"),
-            "confidence": round(confidence, 3),
-            "needs_human_review": confidence < CONFIDENCE_THRESHOLD,
-        }
+        client = _get_client()
+        results = client.text_classification(text, model=repo_id)
+        if results:
+            top = results[0]
+            raw_label = getattr(top, "label", "") or (top.get("label", "") if isinstance(top, dict) else "")
+            score = getattr(top, "score", 0.0) or (top.get("score", 0.0) if isinstance(top, dict) else 0.0)
+            
+            # Map LABEL_X or index to actual string entity
+            label = label_map.get(raw_label, raw_label).strip()
+            confidence = round(float(score), 3)
+            return {
+                "label": label if label else default_label,
+                "confidence": confidence,
+                "needs_human_review": confidence < CONFIDENCE_THRESHOLD,
+            }
+    except HfHubHTTPError as exc:
+        logger.warning("HF API error for %s: %s", repo_id, exc)
     except Exception as exc:
-        logger.warning("Prediction error: %s", exc)
-        return {"label": "general", "confidence": 0.5, "needs_human_review": True}
+        logger.warning("Prediction error for %s: %s", repo_id, exc)
 
-def _heuristic_classify(text: str) -> dict:
-    lower = text.lower()
-    
-    # Department Heuristics
-    dept = "Technical Operations"
-    confidence = 0.85
-    if any(k in lower for k in ["bill", "payment", "pay", "charge", "refund", "invoice", "cost", "price", "card", "transaction"]):
-        dept = "Billing & Finance"
-    elif any(k in lower for k in ["login", "password", "server", "internet", "wifi", "connect", "bug", "crash", "down", "error", "technical", "load", "slow"]):
-        dept = "Technical Operations"
-    elif any(k in lower for k in ["sales", "pricing", "enterprise", "plan", "quote", "discount"]):
-        dept = "Sales & Growth"
-    elif any(k in lower for k in ["feedback", "agent", "support", "help", "experience", "talk"]):
-        dept = "Customer Experience"
-    else:
-        dept = "Technical Operations"
-        confidence = 0.65
+    return {"label": default_label, "confidence": 0.5, "needs_human_review": True}
 
-    # Priority Heuristics
-    priority = "medium"
-    if any(k in lower for k in ["urgent", "immediately", "critical", "emergency", "asap", "down", "severe"]):
-        priority = "high"
-    elif any(k in lower for k in ["minor", "low", "question", "how to"]):
-        priority = "low"
-
-    # Sentiment Heuristics
-    sentiment = "neutral"
-    if any(k in lower for k in ["frustrat", "angry", "bad", "terrible", "worst", "fail", "broken", "horrible", "cannot", "can't", "stuck", "useless"]):
-        sentiment = "negative"
-    elif any(k in lower for k in ["thank", "great", "good", "awesome", "fixed", "appreciate", "helpful"]):
-        sentiment = "positive"
-
-    return {
-        "category": {"label": dept, "confidence": confidence, "needs_human_review": confidence < CONFIDENCE_THRESHOLD},
-        "priority": {"label": priority, "confidence": 0.9, "needs_human_review": False},
-        "sentiment": {"label": sentiment, "confidence": 0.85, "needs_human_review": False},
-    }
 
 def classify_ticket(subject: str, body: str) -> dict:
     raw_text = f"{subject}. {body}" if subject else body
     redacted = redact_pii(raw_text)
 
-    if not _load_models():
-        heuristic = _heuristic_classify(raw_text)
-        return {
-            "body_redacted": redacted.text,
-            "category": heuristic["category"],
-            "priority": heuristic["priority"],
-            "sentiment": heuristic["sentiment"],
-        }
-
-    category_result = _predict(redacted.text, dept_tokenizer, dept_model, id_to_dept)
-    priority_result = _predict(redacted.text, priority_tokenizer, priority_model, id_to_priority)
-    sentiment_result = _predict(redacted.text, sentiment_tokenizer, sentiment_model, id_to_sentiment)
+    category_result = _predict(redacted.text, DEPT_REPO, id_to_dept, default_label="Customer Experience")
+    priority_result = _predict(redacted.text, PRIORITY_REPO, id_to_priority, default_label="medium")
+    sentiment_result = _predict(redacted.text, SENTIMENT_REPO, id_to_sentiment, default_label="neutral")
 
     return {
         "body_redacted": redacted.text,
