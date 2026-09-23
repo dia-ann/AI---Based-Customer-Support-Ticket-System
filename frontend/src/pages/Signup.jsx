@@ -160,7 +160,14 @@ export default function Signup() {
         </div>
 
         {/* Right panel — Single Registration Form */}
-        <div className="p-8 sm:p-10">
+        <div className="p-5 sm:p-8 md:p-10">
+          {/* Mobile Brand Header (< md) */}
+          <div className="flex md:hidden items-center justify-center gap-2.5 mb-6">
+            <Logo size={32} />
+            <span className="text-xl font-bold text-white tracking-tight">
+              Desk<span className="text-accent">wise</span>
+            </span>
+          </div>
           <h2 className="text-xl font-bold text-white">Create an Account 🚀</h2>
           <p className="mt-1 text-sm text-gray-500">
             Sign up to submit and track support tickets
@@ -206,7 +213,7 @@ export default function Signup() {
 
             <form onSubmit={handleSubmit} className="space-y-3.5">
               {/* First Name & Last Name */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-300">
                     First Name <span className="text-accent">*</span>
