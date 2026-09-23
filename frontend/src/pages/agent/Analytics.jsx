@@ -112,7 +112,7 @@ export default function AgentAnalytics() {
       link.setAttribute("href", url);
       link.setAttribute(
         "download",
-        `agent-analytics-${data.agent_name}-${dateRange}-${new Date().toISOString().slice(0, 10)}.csv`
+        `agent-analytics-${data.agent_name}-${dateRange}-${new Date().toISOString().slice(0, 10)}.csv`,
       );
       document.body.appendChild(link);
       link.click();
@@ -179,7 +179,7 @@ export default function AgentAnalytics() {
   const csat = data.sla_compliance?.csat;
 
   return (
-    <div className="min-h-screen bg-[#0a0c10] text-white p-6 sm:p-8">
+    <div className="min-h-screen bg-[#0a0c10] text-white p-4 sm:p-6 lg:p-8">
       {/* Header & Controls */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -234,21 +234,23 @@ export default function AgentAnalytics() {
 
             {/* Custom Date Range Picker (Calendar Based) */}
             {dateRange === "custom" && (
-              <div className="flex items-center gap-2 rounded-xl border border-[#232632] bg-[#141824] px-3 py-1 animate-in fade-in">
-                <Calendar className="h-3.5 w-3.5 text-[#f2b705] shrink-0" />
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="bg-transparent text-xs text-white border-0 focus:outline-none [color-scheme:dark] cursor-pointer"
-                  title="Start Date"
-                />
+              <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 rounded-xl border border-[#232632] bg-[#141824] px-3 py-1.5 animate-in fade-in">
+                <div className="flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5 text-[#f2b705] shrink-0" />
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="bg-transparent text-xs text-white border-0 focus:outline-none [color-scheme:dark] cursor-pointer w-[110px] sm:w-auto"
+                    title="Start Date"
+                  />
+                </div>
                 <span className="text-gray-500 text-xs">to</span>
                 <input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="bg-transparent text-xs text-white border-0 focus:outline-none [color-scheme:dark] cursor-pointer"
+                  className="bg-transparent text-xs text-white border-0 focus:outline-none [color-scheme:dark] cursor-pointer w-[110px] sm:w-auto"
                   title="End Date"
                 />
               </div>
@@ -294,7 +296,8 @@ export default function AgentAnalytics() {
             {data.resolution_rate}%
           </h2>
           <p className="text-[11px] text-gray-400 mt-1">
-            {(data.resolved_count || 0) + (data.closed_count || 0)} resolved/closed
+            {(data.resolved_count || 0) + (data.closed_count || 0)}{" "}
+            resolved/closed
           </p>
         </div>
 
@@ -347,7 +350,9 @@ export default function AgentAnalytics() {
             >
               <div className="w-24 h-24 rounded-full bg-[#181b26] flex flex-col items-center justify-center">
                 <span className="text-xl font-bold">{data.total_tickets}</span>
-                <span className="text-[10px] text-gray-400 uppercase">Total</span>
+                <span className="text-[10px] text-gray-400 uppercase">
+                  Total
+                </span>
               </div>
             </div>
           </div>
@@ -398,10 +403,10 @@ export default function AgentAnalytics() {
                 p.name === "urgent"
                   ? "bg-red-500"
                   : p.name === "high"
-                  ? "bg-amber-500"
-                  : p.name === "medium"
-                  ? "bg-blue-500"
-                  : "bg-gray-500";
+                    ? "bg-amber-500"
+                    : p.name === "medium"
+                      ? "bg-blue-500"
+                      : "bg-gray-500";
 
               return (
                 <div key={p.name} className="space-y-1.5">
@@ -494,7 +499,9 @@ export default function AgentAnalytics() {
                     </p>
                   )}
                   <p className="text-[9px] text-gray-600 mt-0.5">
-                    {t.resolved_at ? formatRelativeTime(t.resolved_at) : "Recently"}
+                    {t.resolved_at
+                      ? formatRelativeTime(t.resolved_at)
+                      : "Recently"}
                   </p>
                 </div>
 
