@@ -196,7 +196,7 @@ export default function Settings() {
     );
 
   return (
-    <div className="min-h-screen bg-[#0a0c10] text-white p-8">
+    <div className="min-h-screen bg-[#0a0c10] text-white p-4 sm:p-6 lg:p-8">
       <div className="flex justify-between items-start mb-6">
         <div>
           <h1 className="text-[22px] font-bold">Settings</h1>
@@ -210,7 +210,7 @@ export default function Settings() {
       <AgentInvite departments={departments} onInvited={handleInvited} />
 
       {/* TEAM MEMBERS */}
-      <div className="bg-[#11131a] border border-[#232632] rounded-[12px] p-5 mb-6">
+      <div className="bg-[#11131a] border border-[#232632] rounded-[12px] p-4 sm:p-5 mb-6">
         <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
           <h2 className="font-semibold text-[14px]">
             Team Members ({users.length})
@@ -239,110 +239,111 @@ export default function Settings() {
             No users found. Invite your first team member.
           </div>
         ) : (
-          <>
-            <div className="grid grid-cols-[2fr_2fr_1.3fr_1fr_1.1fr_1.4fr] text-[11px] text-[#9ca3af] px-3 py-2 select-none">
-              <button
-                type="button"
-                onClick={() => handleHeaderSort("name")}
-                className="flex items-center gap-1 hover:text-white transition-colors text-left"
-                title="Click to sort by Name"
-              >
-                <span>NAME</span>
-                {sortBy === "name" ? (
-                  sortOrder === "asc" ? (
-                    <ArrowUp className="h-3 w-3 text-[#fbbf24]" />
-                  ) : (
-                    <ArrowDown className="h-3 w-3 text-[#fbbf24]" />
-                  )
-                ) : (
-                  <ArrowUpDown className="h-3 w-3 opacity-40 hover:opacity-100" />
-                )}
-              </button>
-              <span>EMAIL</span>
-              <button
-                type="button"
-                onClick={() => handleHeaderSort("created_at")}
-                className="flex items-center gap-1 hover:text-white transition-colors text-left"
-                title="Click to sort by Created Time"
-              >
-                <span>CREATED</span>
-                {sortBy === "created_at" ? (
-                  sortOrder === "asc" ? (
-                    <ArrowUp className="h-3 w-3 text-[#fbbf24]" />
-                  ) : (
-                    <ArrowDown className="h-3 w-3 text-[#fbbf24]" />
-                  )
-                ) : (
-                  <ArrowUpDown className="h-3 w-3 opacity-40 hover:opacity-100" />
-                )}
-              </button>
-              <span>STATUS</span>
-              <span>TIER</span>
-              <span>ASSIGNMENT</span>
-            </div>
-            {sortedUsers.map((u) => {
-              const displayName =
-                [u.first_name, u.last_name].filter(Boolean).join(" ").trim() ||
-                u.name ||
-                u.email?.split("@")[0] ||
-                "Team Member";
-              return (
-                <div
-                  key={u.id}
-                  className="grid grid-cols-[2fr_2fr_1.3fr_1fr_1.1fr_1.4fr] items-center px-3 py-2.5 border-t border-[#1a1d27] text-[13px]"
+          <div className="overflow-x-auto -mx-5 px-5 sm:mx-0 sm:px-0">
+            <div className="min-w-[620px]">
+              <div className="grid grid-cols-[2fr_2fr_1.3fr_1fr_1.1fr_1.4fr] text-[11px] text-[#9ca3af] px-3 py-2 select-none">
+                <button
+                  type="button"
+                  onClick={() => handleHeaderSort("name")}
+                  className="flex items-center gap-1 hover:text-white transition-colors text-left"
+                  title="Click to sort by Name"
                 >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-6 h-6 rounded-full bg-[#fbbf24] flex items-center justify-center text-[11px] font-bold text-black shrink-0">
-                      {displayName[0]?.toUpperCase() || "U"}
-                    </div>
-                    <span className="truncate">{displayName}</span>
-                  </div>
-                  <span className="text-[#9ca3af] text-[12px] truncate">
-                    {u.email}
-                  </span>
-                  <span className="text-[#9ca3af] text-[11px]">
-                    {u.created_at ? formatDateTime(u.created_at) : "N/A"}
-                  </span>
-                  <span
-                    className={`w-fit px-2 py-0.5 rounded text-[10px] ${
-                      u.is_active === false
-                        ? "bg-[#2a1414] text-[#f87171]"
-                        : "bg-[#102a18] text-[#4ade80]"
-                    }`}
+                  <span>NAME</span>
+                  {sortBy === "name" ? (
+                    sortOrder === "asc" ? (
+                      <ArrowUp className="h-3 w-3 text-[#fbbf24]" />
+                    ) : (
+                      <ArrowDown className="h-3 w-3 text-[#fbbf24]" />
+                    )
+                  ) : (
+                    <ArrowUpDown className="h-3 w-3 opacity-40 hover:opacity-100" />
+                  )}
+                </button>
+                <span>EMAIL</span>
+                <button
+                  type="button"
+                  onClick={() => handleHeaderSort("created_at")}
+                  className="flex items-center gap-1 hover:text-white transition-colors text-left"
+                  title="Click to sort by Created Time"
+                >
+                  <span>CREATED</span>
+                  {sortBy === "created_at" ? (
+                    sortOrder === "asc" ? (
+                      <ArrowUp className="h-3 w-3 text-[#fbbf24]" />
+                    ) : (
+                      <ArrowDown className="h-3 w-3 text-[#fbbf24]" />
+                    )
+                  ) : (
+                    <ArrowUpDown className="h-3 w-3 opacity-40 hover:opacity-100" />
+                  )}
+                </button>
+                <span>STATUS</span>
+                <span>TIER</span>
+                <span>ASSIGNMENT</span>
+              </div>
+              {sortedUsers.map((u) => {
+                const displayName =
+                  [u.first_name, u.last_name]
+                    .filter(Boolean)
+                    .join(" ")
+                    .trim() ||
+                  u.name ||
+                  u.email?.split("@")[0] ||
+                  "Team Member";
+                return (
+                  <div
+                    key={u.id}
+                    className="grid grid-cols-[2fr_2fr_1.3fr_1fr_1.1fr_1.4fr] items-center px-3 py-2.5 border-t border-[#1a1d27] text-[13px]"
                   >
-                    {u.is_active === false ? "Inactive" : "Active"}
-                  </span>
-                  {/* Tier column */}
-                  {u.role === "agent" ? (
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-6 h-6 rounded-full bg-[#fbbf24] flex items-center justify-center text-[11px] font-bold text-black shrink-0">
+                        {displayName[0]?.toUpperCase() || "U"}
+                      </div>
+                      <span className="truncate">{displayName}</span>
+                    </div>
+                    <span className="text-[#9ca3af] text-[12px] truncate">
+                      {u.email}
+                    </span>
+                    <span className="text-[#9ca3af] text-[12px]">
+                      {u.created_at ? formatDateTime(u.created_at) : "N/A"}
+                    </span>
+                    <div>
+                      {u.role === "admin" ? (
+                        <span className="text-[#fbbf24] text-[11px] font-semibold uppercase">
+                          ADMIN
+                        </span>
+                      ) : (
+                        <span className="text-[#34d399] text-[11px] font-semibold uppercase">
+                          ACTIVE
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <span className="text-[#9ca3af] text-[12px]">
+                        {u.agent_tier === 2 || u.agent_tier === "2"
+                          ? "Super"
+                          : "Regular"}
+                      </span>
+                    </div>
                     <select
-                      value={u.agent_tier ?? 1}
-                      onChange={(e) => updateAgentTier(u.id, e.target.value)}
+                      value={u.department_id || ""}
+                      onChange={(e) => updateAssignment(u.id, e.target.value)}
                       className="bg-[#0a0c10] border border-[#232632] rounded-[6px] px-2 py-1 text-[12px] outline-none"
                     >
-                      <option value={1}>Regular</option>
-                      <option value={2}>Super Agent</option>
-                    </select>
-                  ) : (
-                    <span className="text-[12px] text-[#6b7280]">—</span>
-                  )}
-                  <select
-                    value={assignmentValue(u)}
-                    onChange={(e) => updateAssignment(u.id, e.target.value)}
-                    className="bg-[#0a0c10] border border-[#232632] rounded-[6px] px-2 py-1 text-[12px] outline-none"
-                  >
-                    <option value="" disabled>
-                      Select...
-                    </option>
-                    {departments.map((dept) => (
-                      <option key={dept.id} value={dept.id}>
-                        {dept.name}
+                      <option value="" disabled>
+                        Select...
                       </option>
-                    ))}
-                  </select>
-                </div>
-              );
-            })}
-          </>
+                      {departments.map((dept) => (
+                        <option key={dept.id} value={dept.id}>
+                          {dept.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         )}
       </div>
 
@@ -352,7 +353,7 @@ export default function Settings() {
           <h2 className="font-semibold text-[14px] mb-4">
             Department Management
           </h2>
-          <div className="flex gap-2 mb-4">
+          <div className="flex flex-col sm:flex-row gap-2 mb-4">
             <input
               value={newDepartment}
               onChange={(e) => setNewDepartment(e.target.value)}
@@ -361,7 +362,7 @@ export default function Settings() {
             />
             <button
               onClick={addDepartment}
-              className="bg-[#fbbf24] text-black text-[12px] px-3 py-2 rounded-[8px] font-semibold"
+              className="bg-[#fbbf24] text-black text-[12px] px-4 py-2 rounded-[8px] font-semibold w-full sm:w-auto"
             >
               + Add Department
             </button>
@@ -400,50 +401,52 @@ export default function Settings() {
               slaPolicies.map((policy) => (
                 <div
                   key={policy.id}
-                  className="bg-[#0a0c10] border border-[#1a1d27] rounded-[8px] p-3 flex items-center gap-3"
+                  className="bg-[#0a0c10] border border-[#1a1d27] rounded-[8px] p-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-3"
                 >
                   <span
-                    className={`text-[11px] font-bold w-[55px] ${priorityColor[policy.priority] || "text-[#9ca3af]"}`}
+                    className={`text-[11px] font-bold sm:w-[55px] shrink-0 ${priorityColor[policy.priority] || "text-[#9ca3af]"}`}
                   >
                     {policy.priority.toUpperCase()}
                   </span>
-                  <div className="flex-1">
-                    <p className="text-[10px] text-[#9ca3af] mb-1">
-                      First Response (minutes)
-                    </p>
-                    <input
-                      type="number"
-                      value={policy.response_minutes}
-                      onChange={(e) =>
-                        handleSlaChange(
-                          policy.id,
-                          "response_minutes",
-                          e.target.value,
-                        )
-                      }
-                      className="bg-[#11131a] border border-[#232632] rounded-[6px] px-2 py-1.5 text-[12px] w-full outline-none"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-[10px] text-[#9ca3af] mb-1">
-                      Resolution Time (minutes)
-                    </p>
-                    <input
-                      type="number"
-                      value={policy.resolution_minutes}
-                      onChange={(e) =>
-                        handleSlaChange(
-                          policy.id,
-                          "resolution_minutes",
-                          e.target.value,
-                        )
-                      }
-                      className="bg-[#11131a] border border-[#232632] rounded-[6px] px-2 py-1.5 text-[12px] w-full outline-none"
-                    />
+                  <div className="grid grid-cols-2 gap-2 flex-1">
+                    <div>
+                      <p className="text-[10px] text-[#9ca3af] mb-1">
+                        First Response (min)
+                      </p>
+                      <input
+                        type="number"
+                        value={policy.response_minutes}
+                        onChange={(e) =>
+                          handleSlaChange(
+                            policy.id,
+                            "response_minutes",
+                            e.target.value,
+                          )
+                        }
+                        className="bg-[#11131a] border border-[#232632] rounded-[6px] px-2 py-1.5 text-[12px] w-full outline-none focus:border-[#fbbf24]"
+                      />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-[#9ca3af] mb-1">
+                        Resolution (min)
+                      </p>
+                      <input
+                        type="number"
+                        value={policy.resolution_minutes}
+                        onChange={(e) =>
+                          handleSlaChange(
+                            policy.id,
+                            "resolution_minutes",
+                            e.target.value,
+                          )
+                        }
+                        className="bg-[#11131a] border border-[#232632] rounded-[6px] px-2 py-1.5 text-[12px] w-full outline-none focus:border-[#fbbf24]"
+                      />
+                    </div>
                   </div>
                   <button
                     onClick={() => saveSlaPolicy(policy)}
-                    className="bg-[#fbbf24] text-black text-[11px] px-3 py-1.5 rounded-[8px] font-semibold self-end"
+                    className="bg-[#fbbf24] text-black text-[11px] px-3 py-1.5 rounded-[8px] font-semibold hover:bg-[#d9a400] transition-colors self-end sm:self-auto shrink-0"
                   >
                     Save Changes
                   </button>

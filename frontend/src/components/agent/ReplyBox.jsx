@@ -1,5 +1,13 @@
 import { useState, useEffect, useRef } from "react";
-import { Sparkles, Paperclip, BookOpen, X, FileText, UploadCloud, ChevronDown } from "lucide-react";
+import {
+  Sparkles,
+  Paperclip,
+  BookOpen,
+  X,
+  FileText,
+  UploadCloud,
+  ChevronDown,
+} from "lucide-react";
 import Button from "../common/Button";
 import { useToast } from "../common/Toast";
 import * as ticketService from "../../services/ticketService";
@@ -39,7 +47,10 @@ export default function ReplyBox({ ticketId, onSent }) {
   // Close template menu on outside click
   useEffect(() => {
     function handleClickOutside(e) {
-      if (templateMenuRef.current && !templateMenuRef.current.contains(e.target)) {
+      if (
+        templateMenuRef.current &&
+        !templateMenuRef.current.contains(e.target)
+      ) {
         setShowTemplates(false);
       }
     }
@@ -47,7 +58,16 @@ export default function ReplyBox({ ticketId, onSent }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const ALLOWED_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".pdf", ".doc", ".docx", ".txt"];
+  const ALLOWED_EXTENSIONS = [
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".webp",
+    ".pdf",
+    ".doc",
+    ".docx",
+    ".txt",
+  ];
   const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
   function handleFileSelect(files) {
@@ -58,7 +78,10 @@ export default function ReplyBox({ ticketId, onSent }) {
     for (const file of fileList) {
       const ext = "." + file.name.split(".").pop().toLowerCase();
       if (!ALLOWED_EXTENSIONS.includes(ext)) {
-        showToast(`"${file.name}" has an unsupported format. Allowed: PNG, JPG, WEBP, PDF, DOC, TXT`, "error");
+        showToast(
+          `"${file.name}" has an unsupported format. Allowed: PNG, JPG, WEBP, PDF, DOC, TXT`,
+          "error",
+        );
         continue;
       }
       if (file.size > MAX_FILE_SIZE) {
@@ -71,7 +94,9 @@ export default function ReplyBox({ ticketId, onSent }) {
         name: file.name,
         size: file.size,
         type: file.type,
-        previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+        previewUrl: file.type.startsWith("image/")
+          ? URL.createObjectURL(file)
+          : null,
       });
     }
 
@@ -89,7 +114,9 @@ export default function ReplyBox({ ticketId, onSent }) {
   }
 
   function handleApplyTemplate(template) {
-    setMessage((prev) => (prev ? `${prev}\n\n${template.body}` : template.body));
+    setMessage((prev) =>
+      prev ? `${prev}\n\n${template.body}` : template.body,
+    );
     setShowTemplates(false);
     showToast(`Template "${template.title}" applied`, "info");
   }
@@ -118,16 +145,28 @@ export default function ReplyBox({ ticketId, onSent }) {
       setAttachments([]);
 
       if (hasMessage && hasAttachments) {
-        showToast(isInternal ? "Internal note & attachments added" : "Reply & attachments sent to customer", "success");
+        showToast(
+          isInternal
+            ? "Internal note & attachments added"
+            : "Reply & attachments sent to customer",
+          "success",
+        );
       } else if (hasAttachments) {
         showToast("Attachments uploaded to ticket successfully", "success");
       } else {
-        showToast(isInternal ? "Internal note added" : "Reply sent to customer", "success");
+        showToast(
+          isInternal ? "Internal note added" : "Reply sent to customer",
+          "success",
+        );
       }
 
       onSent?.();
     } catch (err) {
-      showToast(err.response?.data?.detail || "Failed to send reply or upload attachments", "error");
+      showToast(
+        err.response?.data?.detail ||
+          "Failed to send reply or upload attachments",
+        "error",
+      );
     } finally {
       setSending(false);
     }
@@ -160,14 +199,15 @@ export default function ReplyBox({ ticketId, onSent }) {
       onDrop={(e) => {
         e.preventDefault();
         setIsDragging(false);
-        if (e.dataTransfer.files?.length) handleFileSelect(e.dataTransfer.files);
+        if (e.dataTransfer.files?.length)
+          handleFileSelect(e.dataTransfer.files);
       }}
       className={`w-full space-y-4 rounded-2xl border bg-surface-card p-6 shadow-sm transition-colors ${
         isDragging ? "border-accent bg-accent/5" : "border-surface-border"
       }`}
     >
-      <div className="flex items-center justify-between border-b border-surface-border pb-3">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-surface-border pb-3">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Templates Dropdown (Feature 5) */}
           <div className="relative" ref={templateMenuRef}>
             <button
@@ -181,7 +221,7 @@ export default function ReplyBox({ ticketId, onSent }) {
             </button>
 
             {showTemplates && (
-              <div className="absolute left-0 top-full z-20 mt-1.5 w-72 rounded-xl border border-surface-border bg-surface-card shadow-2xl p-1.5">
+              <div className="fixed inset-x-4 top-1/4 z-50 max-w-xs mx-auto sm:absolute sm:inset-auto sm:left-0 sm:top-full sm:mt-2 sm:w-72 rounded-xl border border-surface-border bg-surface-card p-2 shadow-2xl animate-in fade-in">
                 <p className="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                   Canned Responses
                 </p>
@@ -287,7 +327,7 @@ export default function ReplyBox({ ticketId, onSent }) {
         </div>
       )}
 
-      <div className="flex items-center justify-between pt-1">
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
         <label className="flex cursor-pointer items-center gap-2 text-xs text-gray-400 select-none">
           <input
             type="checkbox"
@@ -298,7 +338,11 @@ export default function ReplyBox({ ticketId, onSent }) {
           <span>Internal note (staff only)</span>
         </label>
 
-        <Button onClick={handleSend} loading={sending} className="px-5 py-2 text-sm font-semibold">
+        <Button
+          onClick={handleSend}
+          loading={sending}
+          className="px-5 py-2 text-sm font-semibold"
+        >
           {isInternal ? "Add Note" : "Send Reply"}
         </Button>
       </div>

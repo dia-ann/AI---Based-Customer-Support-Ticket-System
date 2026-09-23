@@ -95,15 +95,15 @@ export default function FAQ() {
   return (
     <div className="min-h-screen bg-surface-bg text-white">
       {/* Header Bar */}
-      <header className="border-b border-surface-border bg-surface-card px-6 py-4">
-        <div className="mx-auto flex max-w-5xl items-center justify-between">
+      <header className="border-b border-surface-border bg-surface-card px-4 sm:px-6 py-4">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3">
           <Link to="/" className="flex items-center gap-2.5">
             <Logo size={28} />
-            <span className="text-lg font-bold text-white">
+            <span className="text-base sm:text-lg font-bold text-white">
               Desk<span className="text-accent">wise</span> Support
             </span>
           </Link>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3">
             {user ? (
               <Link
                 to={homeRoute || "/tickets"}
@@ -121,7 +121,7 @@ export default function FAQ() {
             )}
             <Link
               to="/tickets/new"
-              className="rounded-lg bg-accent px-3.5 py-1.5 text-xs font-semibold text-black hover:bg-accent-hover transition-colors"
+              className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-black hover:bg-accent-hover transition-colors"
             >
               Submit a Ticket
             </Link>
@@ -198,18 +198,18 @@ export default function FAQ() {
                 >
                   <button
                     onClick={() => toggleItem(faq.id)}
-                    className="flex w-full items-center justify-between p-5 text-left transition-colors"
+                    className="flex w-full items-start justify-between p-4 sm:p-5 text-left transition-colors gap-3"
                   >
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-medium text-accent">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 min-w-0">
+                      <span className="text-xs font-medium text-accent shrink-0">
                         [{faq.category}]
                       </span>
-                      <h3 className="text-sm font-semibold text-gray-100">
+                      <h3 className="text-sm font-semibold text-gray-100 break-words">
                         {faq.question}
                       </h3>
                     </div>
                     <ChevronDown
-                      className={`h-4 w-4 text-gray-500 transition-transform duration-200 shrink-0 ml-4 ${
+                      className={`h-4 w-4 text-gray-500 transition-transform duration-200 shrink-0 mt-0.5 sm:mt-0 ${
                         isOpen ? "rotate-180 text-accent" : ""
                       }`}
                     />
@@ -256,7 +256,10 @@ export default function FAQ() {
             reserved.
           </p>
           <div className="flex items-center gap-4">
-            <Link to="/terms-and-conditions" className="text-accent hover:underline">
+            <Link
+              to="/terms-and-conditions"
+              className="text-accent hover:underline"
+            >
               Terms & Conditions
             </Link>
             <Link to="/faq" className="hover:text-accent transition-colors">

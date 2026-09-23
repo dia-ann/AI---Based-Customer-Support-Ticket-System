@@ -9,7 +9,7 @@ import {
   XCircle,
   Loader2,
 } from "lucide-react";
-import { STATUS_COLORS, SENTIMENT_COLORS } from "../../utils/constants"; 
+import { STATUS_COLORS, SENTIMENT_COLORS } from "../../utils/constants";
 import { formatRelativeTime } from "../../utils/formatters";
 import SLAWatcher from "./SLAWatcher";
 import { useAuth } from "../../hooks/useAuth";
@@ -236,14 +236,24 @@ export default function TicketTable({
           No tickets matched your filter criteria.
         </p>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="border-b border-surface-border text-xs uppercase text-gray-400 font-semibold">
               <tr>
+                {onBulkUpdated && (
+                  <th className="py-2.5 px-3 w-8">
+                    <input
+                      type="checkbox"
+                      checked={allFilteredSelected}
+                      onChange={toggleSelectAll}
+                      className="rounded border-surface-border bg-surface-bg text-accent focus:ring-0 cursor-pointer"
+                      aria-label="Select all tickets"
+                    />
+                  </th>
+                )}
                 <th className="py-2.5 px-3">Subject</th>
                 <th className="py-2.5 px-3">Customer</th>
                 <th className="py-2.5 px-3">Priority</th>
-                {/* New: Sentiment column header*/}
                 <th className="py-2.5 px-3">Sentiment</th>
                 <th className="py-2.5 px-3">Status</th>
                 <th className="py-2.5 px-3">SLA</th>
@@ -253,12 +263,26 @@ export default function TicketTable({
             </thead>
             <tbody>
               {filteredTickets.map((t) => {
+                const isSelected = selectedTicketIds.has(t.id);
                 return (
                   <tr
                     key={t.id}
-                    className="border-b border-surface-border last:border-0 hover:bg-surface-hover transition-colors"
+                    className={`border-b border-surface-border last:border-0 hover:bg-surface-hover transition-colors ${
+                      isSelected ? "bg-accent/5" : ""
+                    }`}
                   >
-                    <td className="py-3 px-3 whitespace-normal min-w-[240px]">
+                    {onBulkUpdated && (
+                      <td className="py-3 px-3 w-8">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelectRow(t.id)}
+                          className="rounded border-surface-border bg-surface-bg text-accent focus:ring-0 cursor-pointer"
+                          aria-label={`Select ticket ${t.id}`}
+                        />
+                      </td>
+                    )}
+                    <td className="py-3 px-3 whitespace-normal min-w-[200px] sm:min-w-[240px]">
                       <Link
                         to={`/agent/tickets/${t.id}`}
                         className="font-medium text-accent hover:underline block"
@@ -273,7 +297,7 @@ export default function TicketTable({
                             <span>
                               {" "}
                               ({(t.classification_confidence * 100).toFixed(0)}%
-                               confidence)
+                              confidence)
                             </span>
                           )}
                         </div>

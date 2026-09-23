@@ -30,7 +30,9 @@ export default function MyTickets() {
       const matchSearch =
         !debouncedSearch.trim() ||
         t.subject?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-        t.body_redacted?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        t.body_redacted
+          ?.toLowerCase()
+          .includes(debouncedSearch.toLowerCase()) ||
         t.description?.toLowerCase().includes(debouncedSearch.toLowerCase());
 
       const matchStatus =
@@ -50,46 +52,51 @@ export default function MyTickets() {
   return (
     <div className="min-h-screen w-full bg-surface-bg mx-auto max-w-4xl px-4 py-8">
       {/* Header & New Ticket / FAQ Buttons */}
+      {/* Header & New Ticket / FAQ Buttons */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">My Tickets</h1>
-          <p className="text-sm text-gray-400 mt-0.5">
+          <h1 className="text-xl sm:text-2xl font-bold text-white">
+            My Tickets
+          </h1>
+          <p className="text-xs sm:text-sm text-gray-400 mt-0.5">
             Track and manage your submitted support requests.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <Link
             to="/faq"
-            className="flex items-center gap-1.5 rounded-lg border border-surface-border bg-surface-card px-3.5 py-2 text-xs font-medium text-gray-300 hover:border-accent hover:text-accent transition-colors"
+            className="flex items-center gap-1.5 rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-xs font-medium text-gray-300 hover:border-accent hover:text-accent transition-colors"
           >
             <HelpCircle className="h-4 w-4" />
             <span>Help / FAQ</span>
           </Link>
           <Link to="/tickets/new">
-            <Button className="flex items-center gap-1">
+            <Button className="flex items-center gap-1 text-xs sm:text-sm px-3.5 py-2">
               <Plus className="h-4 w-4" />
               <span>New Ticket</span>
             </Button>
           </Link>
         </div>
       </div>
-
       {/* FAQ Callout Banner */}
-      <div className="mb-6 flex items-center justify-between rounded-xl border border-surface-border bg-surface-card/60 p-4 backdrop-blur-sm">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/10 text-accent">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-surface-border bg-surface-card/60 p-4 backdrop-blur-sm">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
             <HelpCircle className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-sm font-medium text-white">Need a quick answer?</p>
+            <p className="text-sm font-medium text-white">
+              Need a quick answer?
+            </p>
             <p className="text-xs text-gray-400">
-              Check our frequently asked questions before submitting a new ticket.
+              Check our frequently asked questions before submitting a new
+              ticket.
             </p>
           </div>
         </div>
         <Link
           to="/faq"
-          className="text-xs font-semibold text-accent hover:underline shrink-0"
+          className="text-xs font-semibold text-accent hover:underline shrink-0 sm:self-center"
         >
           View FAQ →
         </Link>
@@ -144,7 +151,9 @@ export default function MyTickets() {
         </div>
 
         {/* Active Filter Counts */}
-        {(debouncedSearch || statusFilter !== "all" || priorityFilter !== "all") && (
+        {(debouncedSearch ||
+          statusFilter !== "all" ||
+          priorityFilter !== "all") && (
           <div className="mt-3 flex items-center justify-between border-t border-surface-border/60 pt-2 text-xs text-gray-400">
             <span>
               Showing {filteredTickets.length} of {tickets.length} tickets
@@ -190,7 +199,11 @@ export default function MyTickets() {
 
       <div className="space-y-3">
         {filteredTickets.map((t) => (
-          <Link key={t.id} to={`/tickets/${t.id}`} className="block transition-transform hover:-translate-y-0.5">
+          <Link
+            key={t.id}
+            to={`/tickets/${t.id}`}
+            className="block transition-transform hover:-translate-y-0.5"
+          >
             <TicketStatus ticket={t} />
           </Link>
         ))}

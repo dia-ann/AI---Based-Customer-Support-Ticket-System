@@ -18,6 +18,25 @@ body {
   @apply text-gray-400 opacity-80;
 }
 
+/* Custom smooth dark scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #232838;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3d4660;
+}
+
 /* Toast animations */
 @keyframes toastSlideIn {
   0% {

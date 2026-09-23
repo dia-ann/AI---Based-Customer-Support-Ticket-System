@@ -198,7 +198,7 @@ export default function Analytics() {
       : "conic-gradient(#232632 0% 100%)";
 
   return (
-    <div className="min-h-screen bg-[#0a0c10] text-white p-6 sm:p-8">
+    <div className="min-h-screen bg-[#0a0c10] text-white p-4 sm:p-6 lg:p-8">
       {/* Header & Controls */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -251,21 +251,23 @@ export default function Analytics() {
 
             {/* Custom Date Range Picker (Calendar Based) */}
             {dateRange === "custom" && (
-              <div className="flex items-center gap-2 rounded-xl border border-[#232632] bg-[#141824] px-3 py-1 animate-in fade-in">
-                <Calendar className="h-3.5 w-3.5 text-[#f2b705] shrink-0" />
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="bg-transparent text-xs text-white border-0 focus:outline-none [color-scheme:dark] cursor-pointer"
-                  title="Start Date"
-                />
+              <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 rounded-xl border border-[#232632] bg-[#141824] px-3 py-1.5 animate-in fade-in">
+                <div className="flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5 text-[#f2b705] shrink-0" />
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="bg-transparent text-xs text-white border-0 focus:outline-none [color-scheme:dark] cursor-pointer w-[110px] sm:w-auto"
+                    title="Start Date"
+                  />
+                </div>
                 <span className="text-gray-500 text-xs">to</span>
                 <input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="bg-transparent text-xs text-white border-0 focus:outline-none [color-scheme:dark] cursor-pointer"
+                  className="bg-transparent text-xs text-white border-0 focus:outline-none [color-scheme:dark] cursor-pointer w-[110px] sm:w-auto"
                   title="End Date"
                 />
               </div>
@@ -391,7 +393,9 @@ export default function Analytics() {
                 <span className="text-[18px] font-bold text-white leading-tight">
                   {analytics.open_count || 0}
                 </span>
-                <span className="text-[11px] text-[#9ca3af] font-medium">Open</span>
+                <span className="text-[11px] text-[#9ca3af] font-medium">
+                  Open
+                </span>
               </div>
             </div>
           </div>
