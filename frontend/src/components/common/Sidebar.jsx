@@ -29,7 +29,7 @@ import { useToast } from "./Toast";
 import * as authService from "../../services/authService";
 import ChangePassword from "../../pages/ChangePassword";
 
-export default function Sidebar() {
+export default function Sidebar({ isOpen = false, onClose = () => {} }) {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { user, logout, isAdmin, isAgent, isCustomer, homeRoute } = useAuth();
@@ -118,12 +118,17 @@ export default function Sidebar() {
           : user?.role || "User";
 
   return (
-    <div className="w-64 min-h-screen bg-[#0f121a] border-r border-[#232838] flex flex-col justify-between shrink-0">
-      <div className="p-4">
+    <aside
+      className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#0f121a] border-r border-[#232838] flex flex-col justify-between shrink-0 transform transition-transform duration-300 ease-in-out md:static md:translate-x-0 ${
+        isOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"
+      }`}
+    >
+      <div className="p-4 flex-1 overflow-y-auto">
         {/* Brand Header */}
         <div className="flex items-center justify-between px-2 py-2 mb-8">
           <Link
             to={homeRoute || "/"}
+            onClick={onClose}
             className="flex items-center gap-3 hover:opacity-90 transition-opacity cursor-pointer"
           >
             <div className="w-9 h-9 bg-[#12131a] rounded-xl flex items-center justify-center">
@@ -177,82 +182,94 @@ export default function Sidebar() {
             </div>
           </Link>
 
-          {/* Notification Bell */}
-          <div className="relative" ref={notifMenuRef}>
-            <button
-              type="button"
-              onClick={() => setShowNotifications((prev) => !prev)}
-              className="relative p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#1a1e2d] transition-colors"
-              title="Notifications"
-            >
-              <Bell className="h-4 w-4" />
-              {unreadCount > 0 && (
-                <span className="absolute top-0.5 right-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-[#f2b705] px-0.5 text-[9px] font-bold text-black ring-2 ring-[#0f121a] animate-pulse">
-                  {unreadCount > 9 ? "9+" : unreadCount}
-                </span>
-              )}
-            </button>
+          <div className="flex items-center gap-1">
+            {/* Notification Bell */}
+            <div className="relative" ref={notifMenuRef}>
+              <button
+                type="button"
+                onClick={() => setShowNotifications((prev) => !prev)}
+                className="relative p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#1a1e2d] transition-colors"
+                title="Notifications"
+              >
+                <Bell className="h-4 w-4" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-0.5 right-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-[#f2b705] px-0.5 text-[9px] font-bold text-black ring-2 ring-[#0f121a] animate-pulse">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </button>
 
-            {showNotifications && (
-              <div className="absolute left-full top-0 z-50 ml-2 w-80 rounded-2xl border border-[#232838] bg-[#141824] shadow-2xl p-4 animate-in fade-in">
-                <div className="flex items-center justify-between border-b border-[#232838] pb-3 mb-2">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-white">
-                      Notifications
-                    </h3>
-                    {unreadCount > 0 && (
-                      <span className="rounded-full bg-[#f2b705]/20 px-2 py-0.5 text-[10px] font-semibold text-[#f2b705]">
-                        {unreadCount} new
-                      </span>
+              {showNotifications && (
+                <div className="fixed inset-x-3 top-14 z-50 max-w-sm mx-auto md:absolute md:inset-auto md:left-full md:top-0 md:ml-2 md:w-80 rounded-2xl border border-[#232838] bg-[#141824] shadow-2xl p-4 max-h-[80vh] overflow-y-auto animate-in fade-in">
+                  <div className="flex items-center justify-between border-b border-[#232838] pb-3 mb-2">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-white">
+                        Notifications
+                      </h3>
+                      {unreadCount > 0 && (
+                        <span className="rounded-full bg-[#f2b705]/20 px-2 py-0.5 text-[10px] font-semibold text-[#f2b705]">
+                          {unreadCount} new
+                        </span>
+                      )}
+                    </div>
+                    {notifications.length > 0 && (
+                      <button
+                        onClick={markAllAsRead}
+                        className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-[#f2b705]"
+                      >
+                        <CheckCheck className="h-3 w-3" />
+                        <span>Read all</span>
+                      </button>
                     )}
                   </div>
-                  {notifications.length > 0 && (
-                    <button
-                      onClick={markAllAsRead}
-                      className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-[#f2b705]"
-                    >
-                      <CheckCheck className="h-3 w-3" />
-                      <span>Read all</span>
-                    </button>
-                  )}
-                </div>
 
-                <div className="max-h-72 space-y-1.5 overflow-y-auto pr-1">
-                  {notifications.length === 0 ? (
-                    <div className="py-6 text-center text-xs text-gray-500">
-                      No notifications
-                    </div>
-                  ) : (
-                    notifications.map((notif) => (
-                      <div
-                        key={notif.id}
-                        onClick={() => handleNotificationClick(notif)}
-                        className={`group flex cursor-pointer items-start gap-2.5 rounded-xl p-2 transition-colors ${
-                          notif.read
-                            ? "hover:bg-[#1b2030] text-gray-400"
-                            : "bg-[#0b0d13] border border-[#f2b705]/20 text-gray-200 hover:border-[#f2b705]/40"
-                        }`}
-                      >
-                        <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded bg-[#1b2030] text-[#f2b705]">
-                          <Ticket className="h-3 w-3" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-semibold text-white group-hover:text-[#f2b705] truncate">
-                            {notif.title}
-                          </p>
-                          <p className="line-clamp-2 text-[11px] text-gray-400">
-                            {notif.message}
-                          </p>
-                          <p className="text-[9px] text-gray-500 mt-0.5">
-                            {formatRelativeTime(notif.timestamp)}
-                          </p>
-                        </div>
+                  <div className="max-h-72 space-y-1.5 overflow-y-auto pr-1">
+                    {notifications.length === 0 ? (
+                      <div className="py-6 text-center text-xs text-gray-500">
+                        No notifications
                       </div>
-                    ))
-                  )}
+                    ) : (
+                      notifications.map((notif) => (
+                        <div
+                          key={notif.id}
+                          onClick={() => handleNotificationClick(notif)}
+                          className={`group flex cursor-pointer items-start gap-2.5 rounded-xl p-2 transition-colors ${
+                            notif.read
+                              ? "hover:bg-[#1b2030] text-gray-400"
+                              : "bg-[#0b0d13] border border-[#f2b705]/20 text-gray-200 hover:border-[#f2b705]/40"
+                          }`}
+                        >
+                          <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded bg-[#1b2030] text-[#f2b705]">
+                            <Ticket className="h-3 w-3" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold text-white group-hover:text-[#f2b705] truncate">
+                              {notif.title}
+                            </p>
+                            <p className="line-clamp-2 text-[11px] text-gray-400">
+                              {notif.message}
+                            </p>
+                            <p className="text-[9px] text-gray-500 mt-0.5">
+                              {formatRelativeTime(notif.timestamp)}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+
+            {/* Mobile Close Button */}
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#1a1e2d] transition-colors md:hidden"
+              aria-label="Close menu"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
         </div>
 
@@ -265,6 +282,7 @@ export default function Sidebar() {
                 key={item.to}
                 to={item.to}
                 end={item.end}
+                onClick={onClose}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-colors ${
                     isActive
@@ -283,7 +301,7 @@ export default function Sidebar() {
 
       {/* User Footer with Interactive User Card & Popup */}
       <div
-        className="p-4 border-t border-[#232838]/60 relative"
+        className="p-4 border-t border-[#232838]/60 relative shrink-0 bg-[#0f121a]"
         ref={userMenuRef}
       >
         <button
@@ -311,7 +329,7 @@ export default function Sidebar() {
 
         {/* User Card Pop-up */}
         {showUserPopup && (
-          <div className="absolute left-full bottom-0 ml-3 w-80 rounded-2xl border border-[#232838] bg-[#141824] shadow-2xl p-4 z-50 animate-in fade-in">
+          <div className="fixed inset-x-3 bottom-4 z-50 max-w-sm mx-auto md:absolute md:inset-auto md:left-full md:bottom-0 md:ml-3 md:w-80 rounded-2xl border border-[#232838] bg-[#141824] shadow-2xl p-4 max-h-[85vh] overflow-y-auto animate-in fade-in">
             {/* Header */}
             <div className="flex items-start justify-between pb-3 border-b border-[#232838]">
               <div className="flex items-center gap-3 min-w-0">
@@ -406,6 +424,7 @@ export default function Sidebar() {
                   onClick={() => {
                     setShowUserPopup(false);
                     setShowChangePasswordModal(true);
+                    onClose?.();
                   }}
                   className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-gray-200 bg-[#1a1e2d] hover:bg-[#22283a] hover:text-[#f2b705] border border-[#2b3145] transition-all cursor-pointer"
                 >
@@ -431,6 +450,6 @@ export default function Sidebar() {
         isOpen={showChangePasswordModal}
         onClose={() => setShowChangePasswordModal(false)}
       />
-    </div>
+    </aside>
   );
 }

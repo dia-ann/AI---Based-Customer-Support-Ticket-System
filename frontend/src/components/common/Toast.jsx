@@ -61,7 +61,7 @@ export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={{ showToast, removeToast }}>
       {children}
-      <div className="fixed bottom-5 right-5 z-50 flex max-w-sm w-full flex-col gap-2.5 pointer-events-none px-3 sm:px-0">
+      <div className="fixed bottom-4 inset-x-4 sm:inset-x-auto sm:right-5 sm:bottom-5 z-50 flex sm:max-w-sm flex-col gap-2.5 pointer-events-none">
         {toasts.map((toast) => {
           const config = VARIANTS[toast.type] || VARIANTS.info;
           const Icon = config.icon;
