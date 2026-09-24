@@ -29,7 +29,6 @@ class TicketCreate(BaseModel):
         return cleaned
 
 class TicketUpdate(BaseModel):
-    category_id: UUID | None = None
     department_id: UUID | None = None
     assigned_agent_id: UUID | None = None
     priority: TicketPriority | None = None
@@ -54,7 +53,6 @@ class TicketRead(BaseModel):
     id: UUID
     customer_id: UUID
     customer_email: str | None = None
-    category_id: UUID | None
     department_id: UUID | None
     assigned_agent_id: UUID | None
     priority: TicketPriority | None
