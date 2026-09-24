@@ -26,3 +26,4 @@ class TicketStatus(str, enum.Enum):
     pending = "pending"
     resolved = "resolved"
     closed = "closed"
+    human_review = "human_review"

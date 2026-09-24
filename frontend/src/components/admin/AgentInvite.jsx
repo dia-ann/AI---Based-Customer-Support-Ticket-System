@@ -64,10 +64,14 @@ export default function AgentInvite({ departments = [], onInvited }) {
         <h2 className="font-semibold text-[14px]">Agent Management</h2>
       </div>
       <p className="text-[12px] text-[#9ca3af] mb-4">
-        The agent receives their login email, temporary password, department, and assigned tier by email.
+        The agent receives their login email, temporary password, department,
+        and assigned tier by email.
       </p>
 
-      <form onSubmit={handleSubmit} className="flex flex-wrap gap-2">
+      <form
+        onSubmit={handleSubmit}
+        className="flex flex-wrap items-center gap-2.5"
+      >
         <input
           type="text"
           value={firstName}
@@ -75,7 +79,7 @@ export default function AgentInvite({ departments = [], onInvited }) {
           placeholder="First name"
           aria-label="First name"
           required
-          className="bg-[#0a0c10] border border-[#232632] rounded-[8px] px-3 py-2 text-[12px] w-[140px] outline-none focus:border-[#fbbf24]"
+          className="bg-[#0a0c10] border border-[#232632] rounded-[8px] px-3 py-2 text-[12px] flex-1 min-w-[130px] outline-none focus:border-[#fbbf24]"
         />
         <input
           type="text"
@@ -84,7 +88,7 @@ export default function AgentInvite({ departments = [], onInvited }) {
           placeholder="Last name"
           aria-label="Last name"
           required
-          className="bg-[#0a0c10] border border-[#232632] rounded-[8px] px-3 py-2 text-[12px] w-[140px] outline-none focus:border-[#fbbf24]"
+          className="bg-[#0a0c10] border border-[#232632] rounded-[8px] px-3 py-2 text-[12px] flex-1 min-w-[130px] outline-none focus:border-[#fbbf24]"
         />
         <input
           type="email"
@@ -93,13 +97,13 @@ export default function AgentInvite({ departments = [], onInvited }) {
           placeholder="agent@company.com"
           aria-label="Agent email"
           required
-          className="bg-[#0a0c10] border border-[#232632] rounded-[8px] px-3 py-2 text-[12px] w-[220px] outline-none focus:border-[#fbbf24]"
+          className="bg-[#0a0c10] border border-[#232632] rounded-[8px] px-3 py-2 text-[12px] flex-1 min-w-[180px] outline-none focus:border-[#fbbf24]"
         />
         <select
           value={departmentId}
           onChange={(e) => setDepartmentId(e.target.value)}
           aria-label="Agent department"
-          className="bg-[#0a0c10] border border-[#232632] rounded-[8px] px-3 py-2 text-[12px] outline-none focus:border-[#fbbf24]"
+          className="bg-[#0a0c10] border border-[#232632] rounded-[8px] px-3 py-2 text-[12px] flex-1 min-w-[160px] outline-none focus:border-[#fbbf24]"
         >
           <option value="">Select department…</option>
           {departments.map((dept) => (
@@ -112,7 +116,7 @@ export default function AgentInvite({ departments = [], onInvited }) {
           value={agentTier}
           onChange={(e) => setAgentTier(Number(e.target.value))}
           aria-label="Agent tier"
-          className="bg-[#0a0c10] border border-[#232632] rounded-[8px] px-3 py-2 text-[12px] outline-none focus:border-[#fbbf24]"
+          className="bg-[#0a0c10] border border-[#232632] rounded-[8px] px-3 py-2 text-[12px] flex-1 min-w-[130px] outline-none focus:border-[#fbbf24]"
         >
           <option value={1}>Regular Agent</option>
           <option value={2}>Super Agent</option>
@@ -120,7 +124,7 @@ export default function AgentInvite({ departments = [], onInvited }) {
         <button
           type="submit"
           disabled={submitting}
-          className="bg-[#fbbf24] text-black text-[12px] px-4 py-2 rounded-[8px] font-semibold disabled:opacity-60"
+          className="bg-[#fbbf24] text-black text-[12px] px-4 py-2 rounded-[8px] font-semibold disabled:opacity-60 w-full sm:w-auto hover:bg-[#d9a400] transition-colors shrink-0"
         >
           {submitting ? "Inviting…" : "Invite Agent"}
         </button>
@@ -135,11 +139,15 @@ export default function AgentInvite({ departments = [], onInvited }) {
 
       {result && (
         <div className="mt-3 rounded-[8px] border border-[#232632] bg-[#0a0c10] p-3 text-[12px]">
-          <p className={result.email_sent ? "text-[#4ade80]" : "text-[#fbbf24]"}>
+          <p
+            className={result.email_sent ? "text-[#4ade80]" : "text-[#fbbf24]"}
+          >
             {result.detail}
           </p>
           <p className="mt-1 text-[#9ca3af]">
-            {result.user.first_name} {result.user.last_name} ({result.user.email}) · {result.department_name} · {result.user.agent_tier === 2 ? "Super Agent" : "Regular Agent"}
+            {result.user.first_name} {result.user.last_name} (
+            {result.user.email}) · {result.department_name} ·{" "}
+            {result.user.agent_tier === 2 ? "Super Agent" : "Regular Agent"}
             {result.reinvited ? " · re-invited (password rotated)" : ""}
           </p>
           {result.temporary_password && (
@@ -149,7 +157,9 @@ export default function AgentInvite({ departments = [], onInvited }) {
               </code>
               <button
                 type="button"
-                onClick={() => navigator.clipboard?.writeText(result.temporary_password)}
+                onClick={() =>
+                  navigator.clipboard?.writeText(result.temporary_password)
+                }
                 className="flex items-center gap-1 text-[#9ca3af] hover:text-white"
               >
                 <Copy className="h-3.5 w-3.5" /> Copy

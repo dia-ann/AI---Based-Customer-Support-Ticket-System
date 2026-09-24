@@ -46,7 +46,17 @@ export default function AuthCallback() {
 
         navigate(dest, { replace: true });
       } catch (err) {
-        showToast(err.message || "Failed to complete Google login", "error");
+        // Clear stored tokens and sign out of Supabase
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("refresh_token");
+        localStorage.removeItem("user");
+        await supabase.auth.signOut().catch(() => {});
+
+        const msg =
+          err.response?.data?.detail ||
+          err.message ||
+          "Failed to complete Google login";
+        showToast(msg, "error");
         navigate("/login", { replace: true });
       }
     }

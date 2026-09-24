@@ -28,7 +28,11 @@ import ImageLightbox from "../../components/common/ImageLightbox";
 import NotFound from "../NotFound";
 import clsx from "clsx";
 import { STATUS_COLORS } from "../../utils/constants";
-import { formatRelativeTime, formatDateTime, formatDisplayName } from "../../utils/formatters";
+import {
+  formatRelativeTime,
+  formatDateTime,
+  formatDisplayName,
+} from "../../utils/formatters";
 import { getAttachmentUrl, isImageAttachment } from "../../utils/attachments";
 import { useReplyRealtime } from "../../hooks/useReplyRealtime";
 
@@ -131,10 +135,10 @@ export default function CustomerTicketDetail() {
       </Link>
 
       {/* Ticket header */}
-      <div className="mt-4 rounded-2xl border border-surface-border bg-surface-card p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="text-xl font-bold text-white truncate">
+      <div className="mt-4 rounded-2xl border border-surface-border bg-surface-card p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg sm:text-xl font-bold text-white break-words">
               {ticket.subject}
             </h1>
             <p className="mt-1 text-xs text-gray-400">
@@ -144,7 +148,7 @@ export default function CustomerTicketDetail() {
           </div>
           <span
             className={clsx(
-              "shrink-0 rounded-full px-3 py-1 text-xs font-semibold capitalize",
+              "self-start shrink-0 rounded-full px-3 py-1 text-xs font-semibold capitalize",
               STATUS_COLORS[ticket.status],
             )}
           >
@@ -167,12 +171,15 @@ export default function CustomerTicketDetail() {
 
             {/* Visual Image Previews Gallery */}
             {ticket.attachments.some((f) =>
-              isImageAttachment(f.name || f.filename, f.content_type)
+              isImageAttachment(f.name || f.filename, f.content_type),
             ) && (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-3">
                 {ticket.attachments
                   .filter((file) =>
-                    isImageAttachment(file.name || file.filename, file.content_type)
+                    isImageAttachment(
+                      file.name || file.filename,
+                      file.content_type,
+                    ),
                   )
                   .map((file, idx) => {
                     const displayName =
@@ -230,7 +237,7 @@ export default function CustomerTicketDetail() {
                   file.name || file.filename || `Attachment ${idx + 1}`;
                 const isImage = isImageAttachment(
                   displayName,
-                  file.content_type
+                  file.content_type,
                 );
                 const fileUrl = getAttachmentUrl(file.url);
                 const sizeLabel = file.size || file.size_formatted;
@@ -251,7 +258,11 @@ export default function CustomerTicketDetail() {
                       }
                     }}
                     className="group inline-flex items-center gap-2 rounded-xl border border-surface-border bg-surface-bg/90 px-3 py-2 text-xs text-gray-300 transition-all hover:border-accent hover:bg-surface-bg hover:text-white shadow-sm cursor-pointer text-left"
-                    title={isImage ? `Preview ${displayName}` : `Download ${displayName}`}
+                    title={
+                      isImage
+                        ? `Preview ${displayName}`
+                        : `Download ${displayName}`
+                    }
                   >
                     {isImage ? (
                       <ImageIcon className="h-4 w-4 text-accent shrink-0 transition-transform group-hover:scale-110" />
@@ -355,7 +366,7 @@ export default function CustomerTicketDetail() {
                 const authorName = formatDisplayName(
                   r.author_name,
                   r.author_email,
-                  isCustomer ? "You" : "Support Agent"
+                  isCustomer ? "You" : "Support Agent",
                 );
 
                 return (
@@ -365,17 +376,17 @@ export default function CustomerTicketDetail() {
                       "w-full rounded-2xl border p-6 transition-all shadow-sm",
                       isCustomer
                         ? "border-accent/30 bg-surface-card/90"
-                        : "border-blue-500/30 bg-surface-card/90"
+                        : "border-blue-500/30 bg-surface-card/90",
                     )}
                   >
-                    <div className="flex items-center justify-between gap-3 mb-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 mb-3">
                       <div className="flex items-center gap-3 min-w-0">
                         <div
                           className={clsx(
                             "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-bold border shadow-inner",
                             isCustomer
                               ? "bg-accent/10 text-accent border-accent/20"
-                              : "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                              : "bg-blue-500/10 text-blue-400 border-blue-500/20",
                           )}
                         >
                           {isCustomer ? (
@@ -404,8 +415,7 @@ export default function CustomerTicketDetail() {
                           </div>
                         </div>
                       </div>
-
-                      <div className="flex items-center gap-1.5 text-xs text-gray-400 shrink-0 font-medium">
+                      <div className="flex items-center gap-1.5 text-xs text-gray-400 shrink-0 font-medium pl-12 sm:pl-0">
                         <Clock className="h-3.5 w-3.5 text-gray-500" />
                         <span>{formatDateTime(r.created_at)}</span>
                       </div>
@@ -420,10 +430,12 @@ export default function CustomerTicketDetail() {
                       <div className="mt-4 flex flex-wrap gap-2 border-t border-surface-border pt-3">
                         {r.attachments.map((file, idx) => {
                           const displayName =
-                            file.name || file.filename || `Attachment ${idx + 1}`;
+                            file.name ||
+                            file.filename ||
+                            `Attachment ${idx + 1}`;
                           const isImage = isImageAttachment(
                             displayName,
-                            file.content_type
+                            file.content_type,
                           );
                           const fileUrl = getAttachmentUrl(file.url);
                           return (
@@ -437,7 +449,11 @@ export default function CustomerTicketDetail() {
                                     name: displayName,
                                   });
                                 } else {
-                                  window.open(fileUrl, "_blank", "noopener,noreferrer");
+                                  window.open(
+                                    fileUrl,
+                                    "_blank",
+                                    "noopener,noreferrer",
+                                  );
                                 }
                               }}
                               className="inline-flex items-center gap-2 rounded-xl border border-surface-border bg-surface-bg px-3 py-2 text-xs text-gray-300 hover:border-accent hover:text-white transition-all shadow-sm cursor-pointer text-left"

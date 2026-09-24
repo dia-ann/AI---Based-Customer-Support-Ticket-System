@@ -24,7 +24,11 @@ import Loader from "../../components/common/Loader";
 import NotFound from "../NotFound";
 import ImageLightbox from "../../components/common/ImageLightbox";
 import * as ticketService from "../../services/ticketService";
-import { formatDateTime, formatRelativeTime, formatDisplayName } from "../../utils/formatters";
+import {
+  formatDateTime,
+  formatRelativeTime,
+  formatDisplayName,
+} from "../../utils/formatters";
 import { getAttachmentUrl, isImageAttachment } from "../../utils/attachments";
 import clsx from "clsx";
 import { STATUS_COLORS } from "../../utils/constants";
@@ -103,26 +107,27 @@ export default function TicketDetail() {
         <span>{isAdmin ? "Back to Tickets Panel" : "Back to Queue"}</span>
       </button>
       {/* Header */}
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-white">{ticket.subject}</h1>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-bold text-white break-words">
+              {ticket.subject}
+            </h1>
             <span
               className={clsx(
-                "rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize",
+                "rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize shrink-0",
                 STATUS_COLORS[ticket.status],
               )}
             >
               {ticket.status?.replace("_", " ")}
             </span>
           </div>
-          <p className="mt-1 text-sm text-gray-400">
+          <p className="mt-1 text-xs sm:text-sm text-gray-400">
             Ticket #{ticket.id} • Customer:{" "}
             {ticket.customer_name || ticket.customer_email || "Customer"}
           </p>
         </div>
-
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-4 shrink-0">
           <SLAWatcher dueAt={ticket.sla_due_at} />
           <select
             value={ticket.status}
@@ -165,12 +170,15 @@ export default function TicketDetail() {
 
             {/* Visual Image Previews Gallery */}
             {ticket.attachments.some((f) =>
-              isImageAttachment(f.name || f.filename, f.content_type)
+              isImageAttachment(f.name || f.filename, f.content_type),
             ) && (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-3">
                 {ticket.attachments
                   .filter((file) =>
-                    isImageAttachment(file.name || file.filename, file.content_type)
+                    isImageAttachment(
+                      file.name || file.filename,
+                      file.content_type,
+                    ),
                   )
                   .map((file, idx) => {
                     const displayName =
@@ -228,7 +236,7 @@ export default function TicketDetail() {
                   file.name || file.filename || `Attachment ${idx + 1}`;
                 const isImage = isImageAttachment(
                   displayName,
-                  file.content_type
+                  file.content_type,
                 );
                 const fileUrl = getAttachmentUrl(file.url);
                 const sizeLabel = file.size || file.size_formatted;
@@ -249,7 +257,11 @@ export default function TicketDetail() {
                       }
                     }}
                     className="group inline-flex items-center gap-2 rounded-xl border border-surface-border bg-surface-bg/90 px-3 py-2 text-xs text-gray-300 transition-all hover:border-accent hover:bg-surface-bg hover:text-white shadow-sm cursor-pointer text-left"
-                    title={isImage ? `Preview ${displayName}` : `Download ${displayName}`}
+                    title={
+                      isImage
+                        ? `Preview ${displayName}`
+                        : `Download ${displayName}`
+                    }
                   >
                     {isImage ? (
                       <ImageIcon className="h-4 w-4 text-accent shrink-0 transition-transform group-hover:scale-110" />
@@ -299,7 +311,9 @@ export default function TicketDetail() {
           </div>
         ) : replies.length === 0 ? (
           <div className="rounded-2xl border border-surface-border bg-surface-card/80 p-8 text-center backdrop-blur-sm shadow-sm">
-            <p className="text-sm font-medium text-gray-300">No replies recorded yet</p>
+            <p className="text-sm font-medium text-gray-300">
+              No replies recorded yet
+            </p>
             <p className="mt-1 text-xs text-gray-500">
               Use the reply box below to send an update or add an internal note.
             </p>
@@ -313,8 +327,12 @@ export default function TicketDetail() {
               const authorLabel = isFromCustomer
                 ? ticket.customer_name || ticket.customer_email || "Customer"
                 : isMine
-                ? "You"
-                : formatDisplayName(r.author_name, r.author_email, "Support Staff");
+                  ? "You"
+                  : formatDisplayName(
+                      r.author_name,
+                      r.author_email,
+                      "Support Staff",
+                    );
 
               return (
                 <div
@@ -324,11 +342,11 @@ export default function TicketDetail() {
                     isNote
                       ? "border-yellow-500/30 bg-surface-card/90"
                       : isFromCustomer
-                      ? "border-surface-border bg-surface-card/90"
-                      : "border-blue-500/30 bg-surface-card/90"
+                        ? "border-surface-border bg-surface-card/90"
+                        : "border-blue-500/30 bg-surface-card/90",
                   )}
                 >
-                  <div className="flex items-center justify-between gap-3 mb-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 mb-3">
                     <div className="flex items-center gap-3 min-w-0">
                       <div
                         className={clsx(
@@ -336,8 +354,8 @@ export default function TicketDetail() {
                           isNote
                             ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/20"
                             : isFromCustomer
-                            ? "bg-gray-700/30 text-gray-300 border-gray-600/30"
-                            : "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                              ? "bg-gray-700/30 text-gray-300 border-gray-600/30"
+                              : "bg-blue-500/10 text-blue-400 border-blue-500/20",
                         )}
                       >
                         {isNote ? (
@@ -373,8 +391,7 @@ export default function TicketDetail() {
                         </div>
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-1.5 text-xs text-gray-400 shrink-0 font-medium">
+                    <div className="flex items-center gap-1.5 text-xs text-gray-400 shrink-0 font-medium pl-12 sm:pl-0">
                       <Clock className="h-3.5 w-3.5 text-gray-500" />
                       <span>{formatDateTime(r.created_at)}</span>
                     </div>
@@ -392,7 +409,7 @@ export default function TicketDetail() {
                           file.name || file.filename || `Attachment ${idx + 1}`;
                         const isImage = isImageAttachment(
                           displayName,
-                          file.content_type
+                          file.content_type,
                         );
                         const fileUrl = getAttachmentUrl(file.url);
                         return (
@@ -406,7 +423,11 @@ export default function TicketDetail() {
                                   name: displayName,
                                 });
                               } else {
-                                window.open(fileUrl, "_blank", "noopener,noreferrer");
+                                window.open(
+                                  fileUrl,
+                                  "_blank",
+                                  "noopener,noreferrer",
+                                );
                               }
                             }}
                             className="inline-flex items-center gap-2 rounded-xl border border-surface-border bg-surface-bg px-3 py-2 text-xs text-gray-300 hover:border-accent hover:text-white transition-all shadow-sm cursor-pointer text-left"

@@ -101,7 +101,14 @@ export default function Login() {
         </div>
 
         {/* Right panel — form */}
-        <div className="p-8 sm:p-10">
+        <div className="p-5 sm:p-8 md:p-10">
+          {/* Mobile Brand Header (< md) */}
+          <div className="flex md:hidden items-center justify-center gap-2.5 mb-6">
+            <Logo size={32} />
+            <span className="text-xl font-bold text-white tracking-tight">
+              Desk<span className="text-accent">wise</span>
+            </span>
+          </div>
           <h2 className="text-xl font-bold text-white">Welcome Back 👋</h2>
           <p className="mt-1 text-sm text-gray-500">
             Sign in to continue to your dashboard
@@ -222,7 +229,10 @@ export default function Login() {
                 Self-Service FAQ
               </Link>
               <span>•</span>
-              <Link to="/terms-and-conditions" className="hover:text-accent transition-colors">
+              <Link
+                to="/terms-and-conditions"
+                className="hover:text-accent transition-colors"
+              >
                 Terms & Conditions
               </Link>
             </div>
