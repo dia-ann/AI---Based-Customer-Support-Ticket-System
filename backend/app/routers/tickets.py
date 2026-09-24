@@ -17,6 +17,7 @@ from backend.app.core.supabase_client import supabase_admin
 from backend.app.database import get_db
 from backend.app.models.ticket import Ticket
 from backend.app.models.user import User
+from backend.app.models.sla_policy import SLAPolicy
 from backend.app.models.sla_state import SLAState
 from backend.app.models.department import Department
 from backend.app.models.attachment import Attachment
@@ -27,6 +28,8 @@ from backend.app.dependencies import get_current_user, require_role
 from backend.app.ai.classify_ticket import classify_ticket
 from backend.app.models.ticket_rating import TicketRating
 from backend.app.schemas.ticket_rating import TicketRatingCreate, TicketRatingRead
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -175,6 +178,26 @@ async def create_ticket(payload: TicketCreate, db: AsyncSession = Depends(get_db
     }
 
     ticket = await crud.create(db, data)
+
+    #--Create linked SLAState row based on the ticket's priority--#
+
+    sla_policy=(await db.execute(
+        select(SLAPolicy).where(SLAPolicy.priority==ticket.priority)
+        )).scalar_one_or_none()
+
+    if sla_policy:
+        now=datetime.now()
+        sla_state=SLAState(
+            ticket_id=ticket.id,
+            sla_policy_id=sla_policy.id,
+            response_due_at=now+timedelta(minutes=sla_policy.response_minutes),
+            resolution_due_at=now+timedelta(minutes=sla_policy.resolution_minutes),
+
+        )
+        db.add(sla_state)
+        await db.commit()
+    else:
+        logger.warning("No SLA policy found for priority=%s; ticket %s created without SLA tracking", ticket.priority, ticket.id)
     return _ticket_to_read(ticket, current_user.email, attachments=[])
 
 @router.get("/", response_model=list[TicketRead])

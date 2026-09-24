@@ -11,7 +11,7 @@ from starlette.responses import RedirectResponse
 from backend.app.config import settings
 from backend.app.core.limiter import limiter
 from backend.app.routers import (
-    auth, departments, users, sla_policies, tickets, replies,
+    auth, departments, users, sla_policies, sla_state, tickets, replies,
 )
 
 app = FastAPI(title="Deskwise", version="1.0.0")
