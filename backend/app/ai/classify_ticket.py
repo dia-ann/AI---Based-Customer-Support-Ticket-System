@@ -4,16 +4,10 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from transformers import pipeline
-from dotenv import load_dotenv
-from transformers import pipeline
+from huggingface_hub import InferenceClient
 
 from backend.app.ai.redact_pii import redact_pii
 
-# Load environment variables from .env
-load_dotenv()
-
-# Load environment variables from .env
 load_dotenv()
 
 logger = logging.getLogger(__name__)
@@ -37,47 +31,32 @@ if MAPPINGS_FILE.exists():
         id_to_dept = {f"LABEL_{v}": k for k, v in mappings.get("department", {}).items()}
         id_to_dept.update({str(v): k for k, v in mappings.get("department", {}).items()})
 
-
         id_to_priority = {f"LABEL_{v}": k for k, v in mappings.get("priority", {}).items()}
         id_to_priority.update({str(v): k for k, v in mappings.get("priority", {}).items()})
-
 
         id_to_sentiment = {f"LABEL_{v}": k for k, v in mappings.get("sentiment", {}).items()}
         id_to_sentiment.update({str(v): k for k, v in mappings.get("sentiment", {}).items()})
     except Exception as exc:
         logger.warning("Could not load label mappings: %s", exc)
 
-_pipelines: dict = {}
-
-def _get_pipeline(repo_id: str):
-    """Retrieve or initialize the classification pipeline cached in memory."""
-    if repo_id not in _pipelines:
-        token = os.getenv("HF_TOKEN")
-        _pipelines[repo_id] = pipeline(
-            "text-classification",
-            model=repo_id,
-            token=token,
-        )
-    return _pipelines[repo_id]
+# Initialize lightweight Hugging Face client (Zero RAM model storage)
+hf_token = os.getenv("HF_TOKEN") or None
+hf_client = InferenceClient(token=hf_token)
 
 
 def preload_models() -> None:
-    """Preload all Hugging Face classification pipelines into memory on startup."""
-    logger.info("Preloading ticket classification models...")
-    for repo_id in (DEPT_REPO, PRIORITY_REPO, SENTIMENT_REPO):
-        _get_pipeline(repo_id)
-    logger.info("All classification models successfully loaded into memory.")
+    """No-op: Models run serverlessly on Hugging Face infrastructure, saving Render RAM."""
+    logger.info("Hugging Face Serverless Inference client initialized successfully.")
 
 
 def _predict(text: str, repo_id: str, label_map: dict[str, str], default_label: str) -> dict:
-    """Run text classification using the Hugging Face model pipeline."""
+    """Query Hugging Face Serverless API for classification."""
     try:
-        classifier = _get_pipeline(repo_id)
-        results = classifier(text, truncation=True)
+        results = hf_client.text_classification(text, model=repo_id)
         if results:
             top = results[0]
-            raw_label = str(top.get("label", ""))
-            score = float(top.get("score", 0.0))
+            raw_label = getattr(top, "label", top.get("label", "") if isinstance(top, dict) else "")
+            score = float(getattr(top, "score", top.get("score", 0.0) if isinstance(top, dict) else 0.0))
 
             label = label_map.get(raw_label, raw_label).strip()
             confidence = round(score, 3)
@@ -87,7 +66,7 @@ def _predict(text: str, repo_id: str, label_map: dict[str, str], default_label: 
                 "needs_human_review": confidence < CONFIDENCE_THRESHOLD,
             }
     except Exception as exc:
-        logger.warning("Prediction error for %s: %s", repo_id, exc)
+        logger.warning("Inference API call failed for %s: %s", repo_id, exc)
 
     return {"label": default_label, "confidence": 0.5, "needs_human_review": True}
 
@@ -106,6 +85,3 @@ def classify_ticket(subject: str, body: str) -> dict:
         "priority": priority_result,
         "sentiment": sentiment_result,
     }
-
-if __name__ == "__main__":
-    print(classify_ticket("hello, the api key of the product is not working, api key is uihuubibio34on2o3o1weo-3j12kjnjnnoos", "api key is not working"))
