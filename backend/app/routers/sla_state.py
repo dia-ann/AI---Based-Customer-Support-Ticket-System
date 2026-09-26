@@ -8,6 +8,7 @@ from backend.app.models.enums import UserRole
 from backend.app.schemas.sla_state import SLAStateCreate, SLAStateUpdate, SLAStateRead
 from backend.app.crud.base import CRUDBase
 from backend.app.dependencies import get_current_user, require_role
+from backend.app.services.sla_service import check_and_warn_at_risk_slas
 
 router = APIRouter(prefix="/sla-state", tags=["SLA State"])
 crud = CRUDBase(SLAState)
@@ -47,3 +48,9 @@ async def update_state(
     if not obj:
         raise HTTPException(404, "SLA state not found")
     return await crud.update(db, obj, payload.model_dump(exclude_unset=True))
+
+@router.post("/check-breaches", dependencies=[Depends(require_role(UserRole.admin, UserRole.agent))])
+async def trigger_sla_check(db: AsyncSession = Depends(get_db)):
+    """Manually triggers the 80% SLA threshold scan and alerts managers for at-risk tickets."""
+    warned_count = await check_and_warn_at_risk_slas(db)
+    return {"status": "success", "warned_tickets": warned_count}
