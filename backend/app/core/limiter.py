@@ -9,4 +9,6 @@ limiter = Limiter(
     default_limits=[],
     storage_uri=storage_uri,
     strategy="moving-window",
+    headers_enabled=False,
 )
+

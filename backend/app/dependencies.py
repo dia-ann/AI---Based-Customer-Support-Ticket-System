@@ -1,15 +1,13 @@
 import logging
-import sentry_sdk
 from uuid import UUID
 
+import sentry_sdk
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
-from backend.app.core.roles import is_company_domain
-from backend.app.core.supabase_client import supabase_admin
 from backend.app.config import settings
 from backend.app.core.security import (
     TokenExpiredError,
@@ -17,6 +15,7 @@ from backend.app.core.security import (
     TokenMissingSubjectError,
     decode_supabase_jwt,
 )
+from backend.app.core.supabase_client import supabase_admin
 from backend.app.database import get_db
 from backend.app.models.enums import UserRole
 from backend.app.models.user import User
@@ -41,6 +40,7 @@ PASSWORD_CHANGE_EXEMPT_PATHS = {
     "/health",
 }
 
+
 def _www_authenticate() -> dict[str, str]:
     return {"WWW-Authenticate": "Bearer"}
 
@@ -50,10 +50,12 @@ def _unauthorized(detail: str) -> HTTPException:
         status.HTTP_401_UNAUTHORIZED, detail, headers=_www_authenticate()
     )
 
+
 def _redact(value: str, keep: int = 16) -> str:
     if len(value) <= keep:
         return value
     return f"{value[:keep]}... ({len(value)} chars)"
+
 
 async def get_access_token(
     request: Request,
@@ -95,6 +97,7 @@ async def get_access_token(
         )
     return token
 
+
 async def get_token_claims(token: str = Depends(get_access_token)) -> dict:
     try:
         return decode_supabase_jwt(token)
@@ -114,6 +117,7 @@ async def get_token_claims(token: str = Depends(get_access_token)) -> dict:
         if settings.DEBUG:
             detail = f"Invalid access token: {exc}"
         raise _unauthorized(detail) from None
+
 
 async def get_current_user(
     request: Request,
@@ -143,9 +147,15 @@ async def get_current_user(
         if is_company_domain(email):
             # Delete the orphaned auth record in Supabase so an admin can invite them later
             try:
-                await run_in_threadpool(supabase_admin.auth.admin.delete_user, str(user_id))
+                await run_in_threadpool(
+                    supabase_admin.auth.admin.delete_user, str(user_id)
+                )
             except Exception as exc:
-                logger.warning("Could not delete uninvited OAuth company user %s from Supabase: %s", email, exc)
+                logger.warning(
+                    "Could not delete uninvited OAuth company user %s from Supabase: %s",
+                    email,
+                    exc,
+                )
             raise HTTPException(
                 status.HTTP_403_FORBIDDEN,
                 "Agent accounts must be created by an administrator. Please ask your admin for an invite.",
@@ -175,10 +185,16 @@ async def get_current_user(
                     "Failed to create user profile.",
                 )
 
+    if getattr(user, "is_archive", False):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "This account has been closed or archived."
+        )
+
     if not user.is_active:
         raise HTTPException(
-            status.HTTP_403_FORBIDDEN, "This account has been deactivated."
+            status.HTTP_403_FORBIDDEN, "This account has been temporarily deactivated."
         )
+
     # Invited agents are still on the admin-generated temporary password: block
     # everything except the endpoints needed to replace it.
     if (
@@ -197,9 +213,11 @@ async def get_current_user(
 
     return user
 
+
 def require_role(*roles: UserRole):
     async def checker(current_user: User = Depends(get_current_user)) -> User:
         if current_user.role not in roles:
             raise HTTPException(status.HTTP_403_FORBIDDEN, "Insufficient permissions")
         return current_user
+
     return checker
