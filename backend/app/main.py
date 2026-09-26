@@ -109,9 +109,22 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(SecurityHeadersMiddleware)
 
+# Parse origins safely: strip whitespace, remove trailing slashes, and support comma-separated lists
+allowed_origins = [
+    origin.strip().rstrip("/")
+    for origin in settings.FRONTEND_URL.split(",")
+    if origin.strip()
+]
+
+# Always keep localhost allowed so local frontend testing never breaks
+if "http://localhost:5173" not in allowed_origins:
+    allowed_origins.append("http://localhost:5173")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_URL],
+    allow_origins=allowed_origins,
+    # Automatically allow any Vercel deployment URL (including preview branches)
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=[
@@ -123,6 +136,7 @@ app.add_middleware(
     ],
     allow_credentials=True,
 )
+
 
 
 app.include_router(auth.router)
