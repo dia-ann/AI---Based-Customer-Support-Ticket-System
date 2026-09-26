@@ -335,6 +335,7 @@ async def me(
         department_name=department_name,
         created_at=current_user.created_at or datetime.now(timezone.utc),
         is_active=current_user.is_active,
+        is_archive=bool(getattr(current_user, "is_archive", False) or False),
         phone_number=current_user.phone_number,
         invited_by=current_user.invited_by,
         invited_by_email=invited_by_email,
@@ -397,7 +398,12 @@ async def change_password(
 
 @router.post("/forgot-password", response_model=ForgotPasswordResponse)
 @limiter.limit("5/hour")
-async def forgot_password(request:Request,payload: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
+async def forgot_password(
+    request: Request,
+    response: Response,
+    payload: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+):
     """Send a verification email with a reset link."""
     email = payload.email.strip().lower()
     result = await db.execute(select(User).where(User.email == email))

@@ -3,7 +3,6 @@ from uuid import UUID
 from datetime import datetime
 from backend.app.models.enums import AgentTier, UserRole
 
-
 class UserRead(BaseModel):
     id: UUID
     email: EmailStr
@@ -15,12 +14,16 @@ class UserRead(BaseModel):
     department_name: str | None = None
     created_at: datetime
     is_active: bool
+    is_archive:bool=False
     phone_number: str | None = None
     invited_by: UUID | None = None
     invited_by_email: str | None = None
     invited_at: datetime | None = None
     must_change_password: bool = False
     model_config = ConfigDict(from_attributes=True)
+
+class DepartmentTeamMemberRead(UserRead):
+    active_tickets_count: int = 0
 
 
 class UserProfileUpdate(BaseModel):
@@ -37,16 +40,15 @@ class UserProfileUpdate(BaseModel):
             raise ValueError("Null bytes are forbidden")
         return v.strip()
 
-
 class UserUpdate(BaseModel):
     role: UserRole | None = None
     department_id: UUID | None = None
     is_active: bool | None = None
+    is_archive:bool| None = None
     phone_number: str | None = Field(None, max_length=20, pattern=r"^\+?[0-9\s\-()]{7,20}$")
     first_name: str | None = Field(None, min_length=1, max_length=50)
     last_name: str | None = Field(None, min_length=1, max_length=50)
     agent_tier: AgentTier | None = None
-
 
 class AgentInvite(BaseModel):
     email: EmailStr
@@ -55,8 +57,6 @@ class AgentInvite(BaseModel):
     last_name: str = Field(..., min_length=1, max_length=50)
     agent_tier: AgentTier = AgentTier.regular
 
-
-
 class AgentInviteResponse(BaseModel):
     user: UserRead
     department_name: str
@@ -64,3 +64,6 @@ class AgentInviteResponse(BaseModel):
     reinvited: bool = False
     detail: str
     temporary_password: str | None = None
+
+class AgentAvailabilityUpdate(BaseModel):
+    is_active: bool
