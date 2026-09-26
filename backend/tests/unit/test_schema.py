@@ -25,7 +25,6 @@ def test_ticket_read_validation():
         "id": uuid.uuid4(),
         "customer_id": uuid.uuid4(),
         "customer_email": "user@test.com",
-        "category_id": None,
         "department_id": None,
         "assigned_agent_id": None,
         "priority": TicketPriority.high,

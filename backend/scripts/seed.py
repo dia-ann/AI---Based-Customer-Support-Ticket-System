@@ -3,7 +3,6 @@ from sqlalchemy import select
 from backend.app.database import AsyncSessionLocal
 from backend.app.core.supabase_client import supabase_admin
 from backend.app.models.department import Department
-from backend.app.models.category import Category
 from backend.app.models.sla_policy import SLAPolicy
 from backend.app.models.user import User
 from backend.app.models.enums import TicketPriority, UserRole
@@ -17,20 +16,6 @@ DEPARTMENTS = [
     "Product Operations",
     "Service Reliability",
 ]
-
-CATEGORIES = [
-    "Billing and Payments",
-    "Customer Service",
-    "General Inquiry",
-    "Human Resources",
-    "IT Support",
-    "Product Support",
-    "Returns and Exchanges",
-    "Sales and Pre-Sales",
-    "Service Outages and Maintenance",
-    "Technical Support",
-]
-
 
 SLA_POLICIES = [
     (TicketPriority.low, 480, 4320),
@@ -50,14 +35,6 @@ async def seed():
             if not exists.scalar_one_or_none():
                 db.add(Department(name=name))
         await db.commit()
-        
-        # Categories
-        for name in CATEGORIES:
-            exists = await db.execute(select(Category).where(Category.name == name))
-            if not exists.scalar_one_or_none():
-                db.add(Category(name=name))
-        await db.commit()
-
 
         # SLA Policies
         for priority, resp, resol in SLA_POLICIES:

@@ -15,7 +15,7 @@ function formatFileSize(bytes) {
 
 export default function TicketForm({ onCreated }) {
   const { showToast } = useToast();
-  const [form, setForm] = useState({ subject: "", description: "", category_id: "" });
+  const [form, setForm] = useState({ subject: "", description: ""});
   const [submitting, setSubmitting] = useState(false);
   const [attachments, setAttachments] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -93,7 +93,7 @@ export default function TicketForm({ onCreated }) {
           ? `Ticket submitted successfully with ${attachments.length} attachment${attachments.length > 1 ? "s" : ""}`
           : "Ticket submitted successfully";
       showToast(msg, "success");
-      setForm({ subject: "", description: "", category_id: "" });
+      setForm({ subject: "", description: ""});
       setAttachments([]);
       onCreated?.(ticket);
     } catch (err) {

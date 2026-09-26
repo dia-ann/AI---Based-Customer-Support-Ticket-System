@@ -11,7 +11,6 @@ export async function createTicket(payload, attachments = []) {
   const body = {
     subject: payload.subject,
     body: payload.body ?? payload.description ?? payload.body_redacted,
-    category_id: payload.category_id || null,
     department_id: payload.department_id || null,
     priority: payload.priority || null,
   };
