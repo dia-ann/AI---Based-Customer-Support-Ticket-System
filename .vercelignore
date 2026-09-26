@@ -1,0 +1,10 @@
+backend
+requirements.txt
+Dockerfile
+.dockerignore
+*.py
+*.pkl
+*.csv
+alembic
+alembic.ini
+ai-support-ticket-system-github-handoff.zip
