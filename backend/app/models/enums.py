@@ -7,7 +7,7 @@ class UserRole(str, enum.Enum):
 
 class AgentTier(int, enum.Enum):
     regular = 1
-    super_agent = 2
+    manager = 2
 
 class TicketPriority(str, enum.Enum):
     low = "low"

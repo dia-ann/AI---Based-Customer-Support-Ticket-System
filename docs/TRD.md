@@ -4,7 +4,7 @@
 | Attribute | Specification |
 | :--- | :--- |
 | **System Name** | Deskwise |
-| **Document Version** | 1.0.0 |
+| **Document Version** | 2.0.0 |
 | **Target Runtime** |  Windows (Python 3.10+, Node.js 18+) |
 | **Target Deployment** | Containerized Web Service (FastAPI) + SPA (Vite/React) |
 
@@ -36,6 +36,7 @@ Deskwise is engineered as a monolithic single-process backend coupled with a res
 │                     Client Tier (React 18 + Vite)                        │
 │  • Customer Portal: Submission, timeline, star ratings (CSAT)            │
 │  • Agent Portal: Department queue, claim action, reply, SLA countdown    │
+│  • Manager Portal: Delegation, team panel, escalation handling           │
 │  • Admin Portal: KPI analytics, triage queue, SLA & user management      │
 └────────────────────────────────────┬─────────────────────────────────────┘
                                       │ HTTPS (Axios + JWT Mutex Interceptor)
@@ -44,7 +45,7 @@ Deskwise is engineered as a monolithic single-process backend coupled with a res
 │                       FastAPI Application Worker                         │
 │  ┌────────────────────────────────────────────────────────────────────┐  │
 │  │ Security & Middlewares:                                           │  │
-│  │  • CORS whitelist, ForceHTTPS (HSTS), SlowAPI Limiter             │  │
+│  │  • CORS whitelist, ForceHTTPS (HSTS), SecurityHeaders, SlowAPI    │  │
 │  │  • Dual JWT verification (Supabase JWKS RS256/ES256 + HS256)      │  │
 │  │  • First-time mandatory password change gate                     │  │
 │  └─────────────────────────────────┬──────────────────────────────────┘  │
@@ -53,8 +54,15 @@ Deskwise is engineered as a monolithic single-process backend coupled with a res
 │  │ In-Process NLP Pipeline (torch + transformers):                   │  │
 │  │  1. PII Redaction: Regex scrubbing (<email>, <acc_num>, <tel_num>)│  │
 │  │  2. Dual DistilBERT sequence classification (Dept + Priority)     │  │
-│  │  3. Deterministic SQL department mapping                          │  │
-│  │  4. Deterministic SLA arithmetic engine                           │  │
+│  │  3. Sentiment Analysis (positive / neutral / negative)            │  │
+│  │  4. Deterministic SQL department mapping                          │  │
+│  │  5. Deterministic SLA arithmetic engine                           │  │
+│  │  6. Manager Auto-Escalation (high-risk → dept manager)            │  │
+│  └─────────────────────────────────┬──────────────────────────────────┘  │
+│                                    │                                     │
+│  ┌─────────────────────────────────▼──────────────────────────────────┐  │
+│  │ Background Workers:                                               │  │
+│  │  • SLA Monitor: 60s asyncio loop → 2-stage alerting (80%/100%)    │  │
 │  └─────────────────────────────────┬──────────────────────────────────┘  │
 └────────────────────────────────────┼─────────────────────────────────────┘
                                       │ Async SQLAlchemy 2.0 (asyncpg)
@@ -71,11 +79,12 @@ Deskwise is engineered as a monolithic single-process backend coupled with a res
 
 1. **In-Process Inference:** Inference and business logic execute within the same FastAPI process; no external microservices or LLM gateway endpoints are permitted for classification.
 2. **Deterministic vs. Probabilistic Separation:**
-   - **Probabilistic / Model:** Category classification and priority scoring.
-   - **Deterministic:** Department routing (SQL table lookup), SLA deadline calculation (UTC timestamp arithmetic), and RBAC access checks.
+   - **Probabilistic / Model:** Category classification, priority scoring, and sentiment analysis.
+   - **Deterministic:** Department routing (SQL table lookup), SLA deadline calculation (UTC timestamp arithmetic), RBAC access checks, and Manager escalation logic.
 3. **Zero Raw PII Persistence:** Incoming text must pass through regex-based PII scrubbing **prior** to database write or tokenizer input. Raw unredacted strings must never be logged or stored.
 4. **Human Review Gate:** If inference confidence is `< 0.50` (or below triage threshold `< 0.60`), the system assigns status `human_review` and flags `needs_triage = True`.
-5. **Strict Tri-Role Separation (RBAC):** Every route and database query enforces role privileges strictly across `customer`, `agent`, and `admin`.
+5. **Four-Role Hierarchy (RBAC):** Every route and database query enforces role privileges across `customer`, `agent (regular)`, `agent (manager)`, and `admin`. The Manager is structurally an `agent` with `agent_tier = 2`, checked at the service layer.
+6. **Single Manager Per Department:** The `validate_single_department_manager()` invariant guarantees at most one active manager per department at all times.
 
 ---
 
@@ -131,6 +140,7 @@ The database is relational PostgreSQL hosted on Supabase and managed via Alembic
 
 ```sql
 CREATE TYPE user_role AS ENUM ('customer', 'agent', 'admin');
+CREATE TYPE agent_tier AS ENUM ('1', '2');  -- 1=Regular, 2=Manager
 CREATE TYPE ticket_priority AS ENUM ('low', 'medium', 'high');
 CREATE TYPE ticket_status AS ENUM ('open', 'in_progress', 'pending', 'resolved', 'closed', 'human_review');
 CREATE TYPE ticket_sentiment AS ENUM ('positive', 'neutral', 'negative');
@@ -153,9 +163,12 @@ CREATE TABLE users (
     password_hash VARCHAR(255),
     role user_role NOT NULL DEFAULT 'customer',
     department_id UUID REFERENCES departments(id) ON DELETE SET NULL,
-    agent_tier INT NOT NULL DEFAULT 1,
+    agent_tier agent_tier,  -- NULL for non-agents, '1' for regular, '2' for manager
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    is_archive BOOLEAN NOT NULL DEFAULT false,
     must_change_password BOOLEAN NOT NULL DEFAULT false,
-    phone_number VARCHAR(50),
+    password_changed_at TIMESTAMPTZ,
+    phone_number VARCHAR(20) UNIQUE,
     first_name VARCHAR(100),
     last_name VARCHAR(100),
     invited_at TIMESTAMPTZ,
@@ -176,7 +189,6 @@ CREATE TABLE sla_policies (
 CREATE TABLE tickets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     customer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    category_id UUID,
     department_id UUID REFERENCES departments(id) ON DELETE SET NULL,
     assigned_agent_id UUID REFERENCES users(id) ON DELETE SET NULL,
     priority ticket_priority NOT NULL,
@@ -220,7 +232,7 @@ CREATE TABLE attachments (
     filename VARCHAR(255) NOT NULL,
     original_filename VARCHAR(255) NOT NULL,
     content_type VARCHAR(100),
-    file_size BIGINT NOT NULL,
+    file_size BIGINT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -236,13 +248,23 @@ CREATE TABLE ticket_ratings (
 
 ### 3.3 Indexing Strategy
 
+Indexes are defined declaratively in the SQLAlchemy model using `Index()` directives:
+
 ```sql
-CREATE INDEX idx_tickets_customer ON tickets (customer_id);
+-- Accelerates customer ticket list sorted by created_at DESC
+CREATE INDEX idx_tickets_customer_created ON tickets (customer_id, created_at);
+-- Accelerates agent queue filtering (assigned tickets by status)
+CREATE INDEX idx_tickets_assigned_agent_status ON tickets (assigned_agent_id, status);
+-- Accelerates department triage and unassigned ticket queue
 CREATE INDEX idx_tickets_department_status ON tickets (department_id, status);
-CREATE INDEX idx_tickets_assigned_agent ON tickets (assigned_agent_id);
-CREATE INDEX idx_tickets_created_at ON tickets (created_at DESC);
-CREATE INDEX idx_sla_state_resolution_due ON sla_state (resolution_due_at) WHERE breached = false;
+-- Accelerates status breakdown in analytics & admin panel filters
+CREATE INDEX idx_tickets_status ON tickets (status);
+-- Accelerates priority breakdown in analytics
+CREATE INDEX idx_tickets_priority ON tickets (priority);
+-- Accelerates reply thread loading
 CREATE INDEX idx_replies_ticket ON replies (ticket_id, created_at ASC);
+-- Accelerates attachment lookups
+CREATE INDEX idx_attachments_ticket ON attachments (ticket_id);
 ```
 
 ---
@@ -272,6 +294,7 @@ Raw Ticket Input (Subject + Body)
 │ 3. Dual Sequence Classification (PyTorch eval mode)          │
 │    ├── Department Model: pratik14212/deskwise-departments    │
 │    └── Priority Model:   pratik14212/deskwise-priorities     │
+│    + Sentiment Analysis: positive / neutral / negative       │
 └──────────────┬─────────────────────────────────────────────┬─┘
                │ Logits → Softmax → ArgMax + Confidence
                ▼
@@ -281,16 +304,23 @@ Raw Ticket Input (Subject + Body)
 │         status = "open", dept_id = SQL lookup(label)         │
 │    • ELSE (Low confidence / Unrecognized):                   │
 │         status = "human_review", needs_triage = True         │
+│                                                              │
+│ 5. Manager Auto-Escalation Check                             │
+│    • IF (priority == high OR sentiment == negative)          │
+│      AND department has active Manager:                      │
+│         assigned_agent_id = manager.id                       │
+│         status = "in_progress"                               │
+│         Create internal audit note + email notification      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 4.1 PII Scrubbing Specifications (`redact_pii.py`)
+### 4.1 PII Scrubbing Specifications
 
 Sanitization is performed synchronously before database writes using compiled regular expressions:
 
 | PII Type | Detection Pattern | Replacement |
 | :--- | :--- | :--- |
-| Email | `\b[a-zA-Z0-9.!#$%&'*+/=?^_{\|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+\b` | `<email>` |
+| Email | `\b[a-zA-Z0-9.!#$%&'*+/=?^_{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+\b` | `<email>` |
 | Credit/Debit Cards | `(?<!\w)(?:\d[ -]*?){13,19}(?!\w)` | `<acc_num>` |
 | Telephone Numbers | `(?<!\w)(?:\+?\d[\d\s().-]{7,}\d)(?!\w)` | `<tel_num>` |
 
@@ -319,7 +349,7 @@ Output Classes (3): `high (0)`, `low (1)`, `medium (2)`
 
 ## 5. Security & Authentication Specification
 
-### 5.1 Dual JWT Verification Engine (`security.py`)
+### 5.1 Dual JWT Verification Engine
 
 To avoid round-tripping to Supabase Auth on every HTTP invocation, the backend implements local cryptographic verification:
 
@@ -336,7 +366,7 @@ To avoid round-tripping to Supabase Auth on every HTTP invocation, the backend i
 - `TokenMissingSubjectError`: Rejects requests lacking user UUID `sub` (e.g. raw anon/service keys).
 - `TokenInvalidError`: Returns standard HTTP 401 unauthorized.
 
-### 5.2 Frontend Axios Mutex Refresh Flow (`api.js`)
+### 5.2 Frontend Axios Mutex Refresh Flow
 
 To prevent race conditions with expiring tokens across concurrent requests:
 
@@ -359,12 +389,29 @@ To prevent race conditions with expiring tokens across concurrent requests:
 - `/auth/me`
 - `/auth/logout`
 
+**Password Reset Flow:** Forgot-password generates a signed JWT reset token (with user ID and email), emails a reset link, and validates against `password_changed_at` timestamp as a replay guard.
+
 ### 5.4 File Attachment Security
 
 - **Maximum upload size:** 5 MB (5,242,880 bytes).
 - **Whitelisted file extensions:** `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.pdf`, `.doc`, `.docx`, `.txt`.
 - **Filename Sanitization:** `re.sub(r"[^a-zA-Z0-9_.-]", "_", base_filename)` to prevent directory traversal.
 - **Storage isolation:** Uploaded files stored in partitioned directories: `uploads/{ticket_id}/{uuid}_{filename}`.
+
+### 5.5 Security Headers Middleware
+
+Applied globally via `SecurityHeadersMiddleware`:
+
+| Header | Value |
+|---|---|
+| `X-Content-Type-Options` | `nosniff` |
+| `X-Frame-Options` | `DENY` |
+| `X-XSS-Protection` | `1; mode=block` |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+
+Additionally, `ForceHTTPSMiddleware` (when `FORCE_HTTPS=true`):
+- Redirects HTTP to HTTPS (301).
+- Sets `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload`.
 
 ---
 
@@ -389,14 +436,8 @@ Request:
 Response (`201 Created`):
 ```json
 {
-  "access_token": "eyJhbGciOi...",
-  "refresh_token": "d98f...",
-  "token_type": "bearer",
-  "user": {
-    "id": "c7a8...",
-    "email": "customer@example.com",
-    "role": "customer"
-  }
+  "message": "Signup successful",
+  "user_id": "c7a8..."
 }
 ```
 
@@ -413,13 +454,27 @@ Request:
 
 Response (`200 OK`):
 ```json
-{"detail": "Password changed successfully"}
+{"message": "Password updated"}
 ```
+
+#### `PUT /auth/me`
+**Access:** Authenticated
+
+Request:
+```json
+{
+  "first_name": "Jane",
+  "last_name": "Smith",
+  "phone_number": "+1987654321"
+}
+```
+
+Response (`200 OK`): Updated `UserRead` schema.
 
 ### 6.2 Ticket Lifecycle & Triage (`/tickets`)
 
 #### `POST /tickets/`
-**Access:** Customer
+**Access:** Authenticated
 
 Request:
 ```json
@@ -431,10 +486,12 @@ Request:
 
 **Execution:**
 1. Executes `redact_pii()` → Sanitizes body to `"...charging card <acc_num>. Reach me at <email>"`.
-2. Runs DistilBERT department & priority models.
+2. Runs DistilBERT department, priority, and sentiment models.
 3. Queries departments matching predicted name `Billing & Finance`.
-4. Computes SLA deadline from `sla_policies` for predicted priority.
-5. Inserts `tickets` and `sla_state` in a single database transaction.
+4. Checks if ticket is high-risk (high priority or negative sentiment) → auto-assigns to department Manager if one exists.
+5. Computes SLA deadline from `sla_policies` for predicted priority.
+6. Inserts `tickets` and `sla_state` in a single database transaction.
+7. Creates internal audit note and emails Manager if auto-escalated.
 
 Response (`201 Created`):
 ```json
@@ -442,8 +499,10 @@ Response (`201 Created`):
   "id": "e4b2d184-7832-411a-9697-3f32c32cf931",
   "customer_id": "c7a8...",
   "department_id": "b11a...",
+  "assigned_agent_id": "mgr-uuid or null",
   "priority": "high",
-  "status": "open",
+  "sentiment": "negative",
+  "status": "in_progress",
   "subject": "Cannot connect to payment gateway",
   "body_redacted": "Getting timeout error when charging card <acc_num>. Reach me at <email>",
   "classification_confidence": 0.942,
@@ -462,7 +521,7 @@ Response (`201 Created`):
 **Query Parameters:** `status`, `priority`, `department_id`, `skip`, `limit`.
 
 #### `PUT /tickets/{id}`
-**Access:** Agent, Admin
+**Access:** Agent, Admin (with tier-specific RBAC)
 
 Request:
 ```json
@@ -473,6 +532,12 @@ Request:
   "priority": "medium"
 }
 ```
+
+**RBAC Boundaries:**
+- Regular agents can only self-assign unassigned tickets; cannot delegate, unassign, transfer, or claim high-risk tickets.
+- Managers can delegate to department agents, unassign, transfer departments.
+- Admins bypass all restrictions.
+- Mid-lifecycle escalation: if priority/sentiment changed to high-risk, auto-reassigns to Manager.
 
 Response (`200 OK`): Updated `TicketRead` schema.
 
@@ -493,6 +558,10 @@ Request:
 **Rules:**
 - `is_internal_note = true` is rejected with `403 Forbidden` if submitted by a customer.
 - Adding a public reply transitions ticket status from `pending` to `in_progress` if authored by a customer.
+- Internal notes are filtered out of the reply list for customer role.
+
+#### `DELETE /replies/{id}`
+**Access:** Admin only.
 
 ### 6.4 CSAT Survey (`/tickets/{id}/rate`)
 
@@ -511,6 +580,44 @@ Request:
 
 Response (`201 Created`): CSAT record confirmation.
 
+### 6.5 User Management (`/users`)
+
+#### `POST /users/invite-agent`
+**Access:** Admin
+
+Request:
+```json
+{
+  "email": "agent@ritgoa.ac.in",
+  "first_name": "John",
+  "last_name": "Agent",
+  "department_id": "dept-uuid",
+  "agent_tier": 1
+}
+```
+
+**Execution:**
+1. Domain whitelist validation.
+2. Creates Supabase Auth account with temporary password.
+3. Creates local `User` profile with `must_change_password = True`.
+4. If `agent_tier = 2 (manager)`, validates single-manager-per-department invariant.
+5. Sends invitation email with temporary password via Brevo.
+
+#### `PATCH /users/{id}/availability`
+**Access:** Admin (any agent) or Manager (own department agents only)
+
+Request:
+```json
+{ "is_active": false }
+```
+
+**Execution:** Deactivating an agent triggers `reroute_agent_tickets_on_absence()`, which reassigns all their open tickets to the department Manager (or unassigned queue if no Manager).
+
+#### `GET /users/department/team`
+**Access:** Admin or Manager
+
+Returns all agents in the caller's department with `active_tickets_count` (number of non-resolved/non-closed tickets assigned to each agent).
+
 ---
 
 ## 7. Operational Engines & Workflows
@@ -521,6 +628,7 @@ Response (`201 Created`): CSAT record confirmation.
 stateDiagram-v2
     [*] --> open: Classification Confidence >= 0.50
     [*] --> human_review: Classification Confidence < 0.50
+    [*] --> in_progress: High-risk ticket auto-assigned to Manager
     human_review --> open: Admin re-assigns or approves in Triage Panel
     open --> in_progress: Agent self-claims ticket
     in_progress --> pending: Agent responds; awaiting customer input
@@ -547,14 +655,38 @@ response_due_at   = created_at + response_minutes
 resolution_due_at = created_at + resolution_minutes
 ```
 
-**Breach Detection:** Evaluated dynamically via `now() > resolution_due_at` and persisted in `sla_state.breached`.
+**Two-Stage SLA Monitor (Background Worker):**
 
-**Frontend Watcher Logic (`SLAWatcher.jsx`):**
+The `sla_monitor_worker()` runs as an `asyncio.create_task()` during app lifecycle, polling every 60 seconds:
+
+| Stage | Trigger | Actions |
+|---|---|---|
+| **Stage 1 (80% Warning)** | Ticket consumes 80% of resolution window (`escalated_at IS NULL`) | Sets `escalated_at = now()`. Creates internal note. Emails department Manager with "SLA WARNING • 80% WINDOW CONSUMED". |
+| **Stage 2 (100% Breach)** | Resolution deadline exceeded (`breached IS FALSE`) | Sets `breached = true`, `escalated_at` if not set. Creates critical internal note. Emails Manager with "CRITICAL SLA BREACH • CONTRACT VIOLATED". |
+
+Each stage fires exactly once per ticket, preventing duplicate notifications.
+
+**Frontend Watcher Logic:**
 - 🟢 **Green:** Remaining time `> 50%` of target.
 - 🟡 **Yellow:** Remaining time between `10%` and `50%`.
 - 🔴 **Red / Alert:** Remaining time `< 10%` or breached (`< 0`).
 
-### 7.3 Frontend Notification & Polling Engine
+### 7.3 Manager Escalation & Delegation Engine
+
+**Auto-Escalation Triggers:**
+1. **At creation:** High-priority or negative-sentiment → assigned to Manager, status `in_progress`.
+2. **Mid-lifecycle:** Priority/sentiment changed to high-risk → reassigned to Manager.
+3. **Agent absence:** Agent deactivated/archived → tickets rerouted to Manager (or unassigned queue).
+4. **Manager succession:** Old Manager demoted → tickets transferred to new Manager via `reroute_manager_tickets_on_demotion()`.
+
+**Delegation RBAC:**
+- Regular agents: Can only self-assign unassigned tickets.
+- Managers: Can delegate to any department agent, unassign tickets, transfer departments.
+- Admins: No restrictions on any ticket operation.
+
+**Delegation creates:** Internal audit note (`Delegation Audit: {role} ({email}) delegated ticket to {target}`) + Email notification to target agent.
+
+### 7.4 Frontend Notification & Polling Engine
 
 - **Queue Polling:** Agent and Admin queues execute a light refresh query every 15 seconds.
 - **Diff Polling:** `NotificationContext.jsx` runs an active polling loop every 30 seconds comparing ticket state IDs and reply counts against local state, emitting toast banners and persisting badge counts in `localStorage`.
@@ -572,8 +704,10 @@ resolution_due_at = created_at + resolution_minutes
 ### 8.2 Security, Hardening & Compliance
 
 - **Transport Security:** `ForceHTTPSMiddleware` redirects HTTP requests to HTTPS and issues HSTS headers (`Strict-Transport-Security: max-age=31536000; includeSubDomains; preload`).
+- **Security Headers:** `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `X-XSS-Protection: 1; mode=block`, `Referrer-Policy: strict-origin-when-cross-origin`.
 - **Rate Limiting (SlowAPI):**
   - `/auth/*`: 5 requests / minute per client IP.
+  - `/auth/forgot-password`: 5 requests / hour per client IP.
   - `POST /tickets/`: 10 requests / minute per user ID.
 - **Data Protection:** Zero plain-text storage of credit card, phone, or email entities in ticket records.
 
@@ -583,10 +717,11 @@ resolution_due_at = created_at + resolution_minutes
 - `status = "human_review"`
 - `department_id = NULL`
 - `priority = "medium"`
-- `classification_confidence = 0.0`
+- `sentiment = "neutral"`
+- `classification_confidence = 0.5`
 
 **Health Probes:**
-- `GET /health`: Liveness probe verifying database connectivity.
+- `GET /health`: Liveness probe verifying application status.
 
 ---
 
@@ -603,13 +738,23 @@ The application is configured using Pydantic Settings reading from a root `.env`
 | `SUPABASE_JWT_SECRET` | String | Yes | Symmetric secret key for HMAC token fallback validation |
 | `FRONTEND_URL` | String | Yes | Allowed CORS origin (e.g., `http://localhost:5173`) |
 | `FORCE_HTTPS` | Boolean | No | Enforces SSL redirect and HSTS headers (default: `False`) |
+| `DEBUG` | Boolean | No | Enables debug mode (default: `False`) |
+| `ALLOW_PUBLIC_SIGNUP` | Boolean | No | Enables customer self-registration (default: `True`) |
+| `ENFORCE_PASSWORD_CHANGE` | Boolean | No | Enforces first-login password change for agents (default: `True`) |
+| `MIN_PASSWORD_LENGTH` | Integer | No | Minimum password length (default: `8`) |
+| `MAX_PASSWORD_LENGTH` | Integer | No | Maximum password length (default: `16`) |
+| `SUPABASE_STORAGE_BUCKET` | String | No | Supabase storage bucket name (default: `ticket-attachments`) |
 | `BREVO_API_KEY` | String | No | Brevo v3 REST API key for transactional emails |
 | `SMTP_HOST` | String | No | SMTP relay server (`smtp-relay.brevo.com`) |
 | `SMTP_PORT` | Integer | No | SMTP relay port (`587`) |
 | `SMTP_USER` | String | No | SMTP authentication username |
 | `SMTP_PASSWORD` | String | No | SMTP authentication password |
-| `MAIL_FROM` | String | No | Outgoing email sender address (`deskwise.support@gmail.com`) |
+| `MAIL_FROM` | String | No | Outgoing email sender address (default: `deskwise.support@gmail.com`) |
+| `MAIL_FROM_NAME` | String | No | Sender display name (default: `Deskwise Support`) |
+| `MAIL_REPLY_TO` | String | No | Reply-to email address |
 | `SENTRY_DSN` | String | No | Sentry endpoint for application observability |
+| `SENTRY_ENVIRONMENT` | String | No | Sentry environment tag (default: `development`) |
+| `SENTRY_TRACES_SAMPLE_RATE` | Float | No | Sentry trace sampling rate (default: `1.0`) |
 
 ---
 
@@ -623,6 +768,10 @@ The application is configured using Pydantic Settings reading from a root `.env`
 | Unit & Integration | `pytest backend/tests` | 100% pass rate on auth, ticket ingestion, SLA arithmetic |
 | PII Scrubbing | Submit ticket with raw CC/phone | DB record confirms `<acc_num>` and `<tel_num>` replacement |
 | SLA Countdown | Create high-priority ticket | Countdown registers 60m response deadline in UTC |
+| Manager Escalation | Create high-priority ticket with dept Manager | Ticket auto-assigned to Manager with audit note |
+| Manager Succession | Promote new Manager in dept with existing one | Old Manager demoted, tickets transferred |
+| SLA Background Monitor | Wait for 80% resolution window | Internal note + Manager email at 80% warning |
+| Agent Deactivation | Admin deactivates agent with open tickets | Tickets rerouted to Manager or unassigned queue |
 
 ---
 
@@ -630,6 +779,6 @@ The application is configured using Pydantic Settings reading from a root `.env`
 
 | Field | Value |
 | :--- | :--- |
-| Last Updated | 2026-09-22 |
+| Last Updated | 2026-09-26 |
 | Maintained By | AI Support Engineering Team |
 | Change Process | Any modification to schema, invariants, or API contracts requires a version bump and PR review against this document. |

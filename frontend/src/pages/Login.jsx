@@ -43,6 +43,20 @@ export default function Login() {
       }
       navigate(homeRoute || "/tickets");
     } catch (err) {
+      if (err.response?.status === 429) {
+        const retryAfter =
+          Number(err.response?.data?.retry_after) ||
+          Number(err.response?.headers?.["retry-after"]) ||
+          60;
+
+        showToast(
+          "Too many login attempts. Please wait before trying again.",
+          "error",
+          { countdown: retryAfter, title: "Rate Limit Exceeded" },
+        );
+        return;
+      }
+
       const errMsg =
         err.response?.data?.detail?.[0]?.msg ||
         err.response?.data?.detail ||

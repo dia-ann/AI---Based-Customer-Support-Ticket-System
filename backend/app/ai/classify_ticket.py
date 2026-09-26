@@ -5,8 +5,13 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from transformers import pipeline
+from dotenv import load_dotenv
+from transformers import pipeline
 
 from backend.app.ai.redact_pii import redact_pii
+
+# Load environment variables from .env
+load_dotenv()
 
 # Load environment variables from .env
 load_dotenv()
@@ -32,8 +37,10 @@ if MAPPINGS_FILE.exists():
         id_to_dept = {f"LABEL_{v}": k for k, v in mappings.get("department", {}).items()}
         id_to_dept.update({str(v): k for k, v in mappings.get("department", {}).items()})
 
+
         id_to_priority = {f"LABEL_{v}": k for k, v in mappings.get("priority", {}).items()}
         id_to_priority.update({str(v): k for k, v in mappings.get("priority", {}).items()})
+
 
         id_to_sentiment = {f"LABEL_{v}": k for k, v in mappings.get("sentiment", {}).items()}
         id_to_sentiment.update({str(v): k for k, v in mappings.get("sentiment", {}).items()})
@@ -41,7 +48,6 @@ if MAPPINGS_FILE.exists():
         logger.warning("Could not load label mappings: %s", exc)
 
 _pipelines: dict = {}
-
 
 def _get_pipeline(repo_id: str):
     """Retrieve or initialize the classification pipeline cached in memory."""
@@ -53,6 +59,14 @@ def _get_pipeline(repo_id: str):
             token=token,
         )
     return _pipelines[repo_id]
+
+
+def preload_models() -> None:
+    """Preload all Hugging Face classification pipelines into memory on startup."""
+    logger.info("Preloading ticket classification models...")
+    for repo_id in (DEPT_REPO, PRIORITY_REPO, SENTIMENT_REPO):
+        _get_pipeline(repo_id)
+    logger.info("All classification models successfully loaded into memory.")
 
 
 def _predict(text: str, repo_id: str, label_map: dict[str, str], default_label: str) -> dict:
@@ -92,3 +106,6 @@ def classify_ticket(subject: str, body: str) -> dict:
         "priority": priority_result,
         "sentiment": sentiment_result,
     }
+
+if __name__ == "__main__":
+    print(classify_ticket("hello, the api key of the product is not working, api key is uihuubibio34on2o3o1weo-3j12kjnjnnoos", "api key is not working"))

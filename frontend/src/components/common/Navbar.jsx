@@ -125,10 +125,10 @@ export default function Navbar() {
                 Ticket Panel
               </Link>
               <Link
-                to="/admin/settings"
+                to="/admin/member-invite"
                 className="hover:text-accent transition-colors"
               >
-                Settings
+                Member Invite
               </Link>
             </>
           )}

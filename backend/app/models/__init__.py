@@ -1,5 +1,4 @@
 from backend.app.models.department import Department
-from backend.app.models.category import Category
 from backend.app.models.user import User
 from backend.app.models.sla_policy import SLAPolicy
 from backend.app.models.ticket import Ticket

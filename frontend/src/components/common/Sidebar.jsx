@@ -14,6 +14,7 @@ import {
   Clock,
   KeyRound,
   MoreVertical,
+  UserPlus,
   X,
   Loader2,
   Building2,
@@ -21,7 +22,13 @@ import {
   PlusCircle,
   HelpCircle,
   History,
+  Phone,
+  Pencil,
+  Copy,
+  Check,
+  ChevronsUpDown,
 } from "lucide-react";
+
 import { useNotifications } from "../../context/NotificationContext";
 import { formatRelativeTime, formatDateTime } from "../../utils/formatters";
 import { useAuth } from "../../hooks/useAuth";
@@ -32,17 +39,70 @@ import ChangePassword from "../../pages/ChangePassword";
 export default function Sidebar({ isOpen = false, onClose = () => {} }) {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const { user, logout, isAdmin, isAgent, isCustomer, homeRoute } = useAuth();
+  const { user, logout, isAdmin, isAgent, isCustomer, homeRoute, refreshUser } =
+    useAuth();
   const { notifications, unreadCount, markAsRead, markAllAsRead } =
     useNotifications();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const notifMenuRef = useRef(null);
-
-  // User Card Popup State & Ref
+  // User Card Popup & Edit State
   const [showUserPopup, setShowUserPopup] = useState(false);
-  const [sendingReset, setSendingReset] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [copiedEmail, setCopiedEmail] = useState(false);
+  const [editForm, setEditForm] = useState({
+    first_name: "",
+    last_name: "",
+    phone_number: "",
+  });
   const userMenuRef = useRef(null);
+  // Sync edit form with current user profile
+  useEffect(() => {
+    if (user) {
+      setEditForm({
+        first_name: user.first_name || "",
+        last_name: user.last_name || "",
+        phone_number: user.phone_number || "",
+      });
+    }
+  }, [user, showUserPopup]);
+  // Copy email to clipboard with feedback
+  async function handleCopyEmail(e) {
+    e.stopPropagation();
+    if (!user?.email) return;
+    try {
+      await navigator.clipboard.writeText(user.email);
+      setCopiedEmail(true);
+      setTimeout(() => setCopiedEmail(false), 2000);
+      showToast("Email copied to clipboard!", "success");
+    } catch {
+      showToast("Failed to copy email", "error");
+    }
+  }
+  // Save profile changes (first_name, last_name, phone_number)
+  async function handleSaveProfile(e) {
+    e.preventDefault();
+    setSavingProfile(true);
+    try {
+      await authService.updateProfile({
+        first_name: editForm.first_name.trim() || null,
+        last_name: editForm.last_name.trim() || null,
+        phone_number: editForm.phone_number.trim() || null,
+      });
+      await refreshUser();
+      setIsEditingProfile(false);
+      showToast("Profile updated successfully!", "success");
+    } catch (err) {
+      const msg =
+        err?.response?.data?.detail ||
+        err?.message ||
+        "Failed to update profile";
+      showToast(msg, "error");
+    } finally {
+      setSavingProfile(false);
+    }
+  }
 
   // Close notifications on outside click
   useEffect(() => {
@@ -76,19 +136,31 @@ export default function Sidebar({ isOpen = false, onClose = () => {} }) {
     navigate("/login");
   }
 
-  // RBAC: Dynamically set nav items based on user role
+  const isManager =
+    user?.agent_tier === 2 ||
+    user?.agent_tier === "2" ||
+    user?.agent_tier === "manager";
+  // RBAC: Dynamically set nav items based on user role and tier
   const navItems = useMemo(() => {
     if (isAdmin) {
       return [
         { label: "Analytics", to: "/admin/analytics", icon: BarChart3 },
         { label: "Tickets Panel", to: "/admin/ticket-panel", icon: Ticket },
-        { label: "Settings", to: "/admin/settings", icon: Settings },
+        { label: "Member Invite", to: "/admin/member-invite", icon: UserPlus },
       ];
     }
     if (isAgent) {
       return [
-        { label: "Analytics", to: "/agent/analytics", icon: BarChart3 },
-        { label: "Ticket Panel", to: "/agent/ticket-panel", icon: Inbox },
+        {
+          label: isManager ? "Dept Analytics" : "Analytics",
+          to: "/agent/analytics",
+          icon: BarChart3,
+        },
+        {
+          label: isManager ? "Manager Dashboard" : "Ticket Panel",
+          to: "/agent/ticket-panel",
+          icon: Inbox,
+        },
       ];
     }
     if (isCustomer || user?.role === "customer") {
@@ -100,22 +172,67 @@ export default function Sidebar({ isOpen = false, onClose = () => {} }) {
       ];
     }
     return [];
-  }, [isAdmin, isAgent, isCustomer, user?.role]);
+  }, [isAdmin, isAgent, isCustomer, user?.role, isManager]);
 
   const displayName =
     [user?.first_name, user?.last_name].filter(Boolean).join(" ") ||
     user?.name ||
     user?.email?.split("@")[0] ||
     "User";
+  // Compute dual initials (e.g., "JD")
+  const initials = useMemo(() => {
+    if (user?.first_name || user?.last_name) {
+      return `${user.first_name?.[0] || ""}${user.last_name?.[0] || ""}`.toUpperCase();
+    }
+    if (user?.name) {
+      const parts = user.name.trim().split(/\s+/);
+      if (parts.length >= 2) {
+        return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+      }
+      return user.name.slice(0, 2).toUpperCase();
+    }
+    return (user?.email?.[0] || "U").toUpperCase();
+  }, [user]);
+  // Distinct styling per role & tier
+  const roleConfig = useMemo(() => {
+    if (user?.role === "admin" || isAdmin) {
+      return {
+        label: "Admin",
+        badgeClass: "bg-amber-500/15 border-amber-500/30 text-amber-400",
+        avatarBorder: "border-amber-500/40 text-amber-400",
+        avatarBg: "from-amber-950/40 to-[#12151f]",
+        Icon: Shield,
+      };
+    }
+    if (user?.role === "agent" || isAgent) {
+      const isManager =
+        user?.agent_tier === 2 ||
+        user?.agent_tier === "2" ||
+        user?.agent_tier === "manager";
+      return {
+        label: isManager ? "Support Manager" : "Support Agent",
+        badgeClass: isManager
+          ? "bg-purple-500/15 border-purple-500/30 text-purple-300"
+          : "bg-sky-500/15 border-sky-500/30 text-sky-400",
+        avatarBorder: isManager
+          ? "border-purple-500/40 text-purple-300"
+          : "border-sky-500/40 text-sky-400",
+        avatarBg: isManager
+          ? "from-purple-950/40 to-[#12151f]"
+          : "from-sky-950/40 to-[#12151f]",
+        Icon: isManager ? Award : Shield,
+      };
+    }
+    return {
+      label: "Customer",
+      badgeClass: "bg-emerald-500/15 border-emerald-500/30 text-emerald-400",
+      avatarBorder: "border-emerald-500/40 text-emerald-400",
+      avatarBg: "from-emerald-950/40 to-[#12151f]",
+      Icon: Shield,
+    };
+  }, [user?.role, user?.agent_tier, isAdmin, isAgent]);
 
-  const userRoleBadge =
-    user?.role === "admin"
-      ? "Admin"
-      : user?.role === "agent"
-        ? "Support Agent"
-        : user?.role === "customer"
-          ? "Customer"
-          : user?.role || "User";
+  const userRoleBadge = roleConfig.label;
 
   return (
     <aside
@@ -298,16 +415,18 @@ export default function Sidebar({ isOpen = false, onClose = () => {} }) {
           })}
         </nav>
       </div>
-
       {/* User Footer with Interactive User Card & Popup */}
       <div
-        className="p-4 border-t border-[#232838]/60 relative shrink-0 bg-[#0f121a]"
+        className="p-3 border-t border-[#232838]/60 relative shrink-0 bg-[#0f121a]"
         ref={userMenuRef}
       >
         <button
           type="button"
-          onClick={() => setShowUserPopup((prev) => !prev)}
-          className={`w-full flex items-center gap-3 p-2.5 rounded-xl border transition-all text-left cursor-pointer group ${
+          onClick={() => {
+            setShowUserPopup((prev) => !prev);
+            setIsEditingProfile(false);
+          }}
+          className={`w-full flex items-center gap-3.5 p-2.5 rounded-xl border transition-all text-left cursor-pointer group ${
             showUserPopup
               ? "bg-[#161a26] border-[#f2b705]/50 shadow-lg shadow-black/40"
               : "bg-[#12151f]/80 border-[#232838] hover:bg-[#161a26] hover:border-[#2d3345]"
@@ -315,8 +434,10 @@ export default function Sidebar({ isOpen = false, onClose = () => {} }) {
           title="Click to view profile & account options"
         >
           <div className="relative shrink-0">
-            <div className="h-9 w-9 rounded-xl bg-[#1b2030] border border-[#2d3345] flex items-center justify-center text-[#f2b705] font-bold text-xs uppercase group-hover:border-[#f2b705]/50 transition-colors">
-              {displayName[0]}
+            <div
+              className={`h-9 w-9 rounded-xl bg-gradient-to-br ${roleConfig.avatarBg} border ${roleConfig.avatarBorder} flex items-center justify-center font-bold text-xs uppercase group-hover:scale-105 transition-all shadow-inner`}
+            >
+              {initials}
             </div>
           </div>
 
@@ -324,100 +445,234 @@ export default function Sidebar({ isOpen = false, onClose = () => {} }) {
             <p className="text-xs font-semibold text-white truncate capitalize group-hover:text-[#f2b705] transition-colors">
               {displayName}
             </p>
+            <p className="text-[11px] text-gray-400 truncate font-medium mt-0.5">
+              {roleConfig.label}
+            </p>
           </div>
+
+          <ChevronsUpDown className="h-4 w-4 text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
         </button>
 
         {/* User Card Pop-up */}
         {showUserPopup && (
-          <div className="fixed inset-x-3 bottom-4 z-50 max-w-sm mx-auto md:absolute md:inset-auto md:left-full md:bottom-0 md:ml-3 md:w-80 rounded-2xl border border-[#232838] bg-[#141824] shadow-2xl p-4 max-h-[85vh] overflow-y-auto animate-in fade-in">
+          <div className="fixed inset-x-4 bottom-5 z-50 max-w-sm mx-auto md:absolute md:inset-auto md:left-full md:bottom-0 md:ml-4 md:w-92 rounded-2xl border border-[#232838] bg-[#121520]/95 backdrop-blur-xl shadow-2xl p-5 animate-in fade-in">
             {/* Header */}
-            <div className="flex items-start justify-between pb-3 border-b border-[#232838]">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-[#1b2030] to-[#12151f] border border-[#f2b705]/40 flex items-center justify-center text-[#f2b705] font-bold text-sm uppercase shrink-0 shadow-inner">
-                  {displayName[0]}
+            <div className="flex items-center justify-between pb-4 border-b border-[#232838]">
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div
+                  className={`h-12 w-12 rounded-2xl bg-gradient-to-br ${roleConfig.avatarBg} border ${roleConfig.avatarBorder} flex items-center justify-center font-bold text-sm uppercase shadow-inner text-white shrink-0`}
+                >
+                  {initials}
                 </div>
                 <div className="min-w-0">
-                  <h4 className="text-sm font-bold text-white truncate capitalize">
+                  <h4 className="text-sm font-semibold text-white truncate capitalize leading-snug">
                     {displayName}
                   </h4>
-                  <span className="inline-flex items-center gap-1 mt-0.5 rounded-full bg-[#f2b705]/15 border border-[#f2b705]/30 px-2 py-0.5 text-[10px] font-semibold text-[#f2b705]">
-                    <Shield className="h-2.5 w-2.5" />
-                    {userRoleBadge}
-                  </span>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowUserPopup(false)}
-                className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-[#1a1e2d] transition-colors"
-                title="Close"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Profile Info Fields */}
-            <div className="py-3 space-y-2.5 text-xs">
-              <div className="flex items-start gap-2.5">
-                <Mail className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <span className="text-[10px] uppercase font-bold text-gray-500 block">
-                    Email
-                  </span>
-                  <span className="text-gray-200 break-all font-medium">
-                    {user?.email || "N/A"}
-                  </span>
+                  <p className="text-xs text-gray-400 font-medium mt-0.5">
+                    {roleConfig.label}
+                  </p>
                 </div>
               </div>
 
-              {(user?.role === "agent" || isAgent) && (
-                <>
-                  <div className="flex items-start gap-2.5">
-                    <Building2 className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <span className="text-[10px] uppercase font-bold text-gray-500 block">
-                        Department
-                      </span>
-                      <span className="text-gray-200 font-medium">
-                        {user?.department_name || "Unassigned"}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-2.5">
-                    <Award className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <span className="text-[10px] uppercase font-bold text-gray-500 block">
-                        Agent Tier
-                      </span>
-                      <span className="text-gray-200 font-medium">
-                        {user?.agent_tier === 2 ||
-                        user?.agent_tier === "2" ||
-                        user?.agent_tier === "super_agent"
-                          ? "Super Agent"
-                          : "Regular"}
-                      </span>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              <div className="flex items-start gap-2.5">
-                <Clock className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <span className="text-[10px] uppercase font-bold text-gray-500 block">
-                    {user?.invited_at ? "Created At" : "Member Since / Created"}
-                  </span>
-                  <span className="text-gray-200 font-medium">
-                    {user?.created_at ? formatDateTime(user.created_at) : "N/A"}
-                  </span>
-                </div>
+              {/* Header Actions */}
+              <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingProfile((prev) => !prev)}
+                  className={`p-2 rounded-xl border transition-all ${
+                    isEditingProfile
+                      ? "bg-[#f2b705]/20 text-[#f2b705] border-[#f2b705]/40"
+                      : "text-gray-400 hover:text-white hover:bg-[#1a1e2d] border-[#252b3b]"
+                  }`}
+                  title={isEditingProfile ? "Cancel edit" : "Edit profile"}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowUserPopup(false);
+                    setIsEditingProfile(false);
+                  }}
+                  className="p-2 rounded-xl text-gray-400 hover:text-white hover:bg-[#1a1e2d] border border-[#252b3b] transition-colors"
+                  title="Close"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="pt-3 border-t border-[#232838] space-y-2">
-              {/* Only show Forgot Password for non-admin accounts */}
+            {/* Profile Info / Edit Form */}
+            {isEditingProfile ? (
+              <form onSubmit={handleSaveProfile} className="py-4 space-y-3.5">
+                <div className="text-xs font-semibold text-[#f2b705] flex items-center gap-1.5 mb-1">
+                  <Pencil className="h-3.5 w-3.5" />
+                  <span>Edit Profile</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="text-[10px] uppercase tracking-wider font-semibold text-gray-400 block mb-1">
+                      First Name
+                    </label>
+                    <input
+                      type="text"
+                      value={editForm.first_name}
+                      onChange={(e) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          first_name: e.target.value,
+                        }))
+                      }
+                      placeholder="First name"
+                      className="w-full rounded-xl bg-[#0b0e16] border border-[#262c3e] px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#f2b705] transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase tracking-wider font-semibold text-gray-400 block mb-1">
+                      Last Name
+                    </label>
+                    <input
+                      type="text"
+                      value={editForm.last_name}
+                      onChange={(e) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          last_name: e.target.value,
+                        }))
+                      }
+                      placeholder="Last name"
+                      className="w-full rounded-xl bg-[#0b0e16] border border-[#262c3e] px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#f2b705] transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider font-semibold text-gray-400 block mb-1">
+                    Phone Number
+                  </label>
+                  <div className="relative">
+                    <Phone className="h-3.5 w-3.5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="tel"
+                      value={editForm.phone_number}
+                      onChange={(e) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          phone_number: e.target.value,
+                        }))
+                      }
+                      placeholder="+1 (555) 000-0000"
+                      className="w-full rounded-xl bg-[#0b0e16] border border-[#262c3e] pl-9 pr-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#f2b705] transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    type="submit"
+                    disabled={savingProfile}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-semibold bg-[#f2b705] hover:bg-[#d9a404] text-black transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    {savingProfile ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="h-3.5 w-3.5" />
+                        <span>Save Changes</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={savingProfile}
+                    onClick={() => setIsEditingProfile(false)}
+                    className="py-2.5 px-3 rounded-xl text-xs font-semibold text-gray-400 hover:text-white bg-[#1a1e2d] hover:bg-[#232838] border border-[#2b3145] transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="py-4 space-y-3 text-xs">
+                {/* Email Address */}
+                <div className="flex items-center justify-between gap-3 bg-[#0c0f17]/70 border border-[#202535] rounded-xl p-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Mail className="h-4 w-4 text-gray-400 shrink-0" />
+                    <div className="min-w-0">
+                      <span className="text-[10px] uppercase tracking-wider font-semibold text-gray-500 block">
+                        Email Address
+                      </span>
+                      <span className="text-gray-200 break-all font-medium text-xs mt-0.5 block">
+                        {user?.email || "N/A"}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCopyEmail}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-[#f2b705] hover:bg-[#1a1e2d] transition-colors shrink-0"
+                    title={copiedEmail ? "Copied!" : "Copy email address"}
+                  >
+                    {copiedEmail ? (
+                      <Check className="h-3.5 w-3.5 text-emerald-400" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+                </div>
+
+                {/* Phone Number */}
+                <div className="flex items-center justify-between gap-3 bg-[#0c0f17]/70 border border-[#202535] rounded-xl p-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Phone className="h-4 w-4 text-gray-400 shrink-0" />
+                    <div className="min-w-0">
+                      <span className="text-[10px] uppercase tracking-wider font-semibold text-gray-500 block">
+                        Phone Number
+                      </span>
+                      <span className="text-gray-200 font-medium text-xs mt-0.5 block">
+                        {user?.phone_number || (
+                          <span className="text-gray-500 italic">
+                            Not provided
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                  {!user?.phone_number && (
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingProfile(true)}
+                      className="text-xs text-[#f2b705] hover:underline font-semibold shrink-0"
+                    >
+                      + Add
+                    </button>
+                  )}
+                </div>
+
+                {/* Member Since */}
+                <div className="flex items-center gap-3 px-3 py-1.5 text-gray-400">
+                  <Clock className="h-4 w-4 text-gray-500 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <span className="text-[10px] uppercase tracking-wider font-semibold text-gray-500 block">
+                      {user?.invited_at ? "Invited On" : "Member Since"}
+                    </span>
+                    <span className="text-gray-300 font-medium text-xs mt-0.5 block">
+                      {user?.created_at
+                        ? formatDateTime(user.created_at)
+                        : "N/A"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons (Change Password & Logout) */}
+            <div className="pt-3.5 border-t border-[#232838] space-y-2">
+              {/* Only show Change Password for non-admin accounts */}
               {!isAdmin && (
                 <button
                   type="button"
@@ -426,7 +681,7 @@ export default function Sidebar({ isOpen = false, onClose = () => {} }) {
                     setShowChangePasswordModal(true);
                     onClose?.();
                   }}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-gray-200 bg-[#1a1e2d] hover:bg-[#22283a] hover:text-[#f2b705] border border-[#2b3145] transition-all cursor-pointer"
+                  className="w-full flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-gray-200 bg-[#161a26] hover:bg-[#1f2436] hover:text-[#f2b705] border border-[#252b3b] transition-all cursor-pointer"
                 >
                   <KeyRound className="h-3.5 w-3.5 text-[#f2b705]" />
                   <span>Change Password</span>
@@ -436,7 +691,7 @@ export default function Sidebar({ isOpen = false, onClose = () => {} }) {
               <button
                 type="button"
                 onClick={handleLogout}
-                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-all cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-all cursor-pointer"
               >
                 <LogOut className="h-3.5 w-3.5" />
                 <span>Log out</span>

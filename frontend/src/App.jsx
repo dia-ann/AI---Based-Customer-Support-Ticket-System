@@ -34,7 +34,7 @@ const TicketDetail = lazy(() => import("./pages/agent/TicketDetail"));
 
 // Admin
 const Analytics = lazy(() => import("./pages/admin/Analytics"));
-const Settings = lazy(() => import("./pages/admin/Settings"));
+const MemberInvite = lazy(() => import("./pages/admin/MemberInvite"));
 const AdminTicketPanel = lazy(() => import("./pages/admin/TicketPanel"));
 
 function HomeRedirect() {
@@ -107,7 +107,8 @@ export default function App() {
                 {/* Admin routes */}
                 <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
                   <Route path="/admin/analytics" element={<Layout><Analytics /></Layout>} />
-                  <Route path="/admin/settings" element={<Layout><Settings /></Layout>} />
+                  <Route path="/admin/member-invite" element={<Layout><MemberInvite /></Layout>} />
+                  <Route path="/admin/settings" element={<Navigate to="/admin/member-invite" replace />} />
                   <Route path="/admin/ticket-panel" element={<Layout><AdminTicketPanel /></Layout>} />
                   <Route path="/admin/triage" element={<Navigate to="/admin/ticket-panel" replace />} />
                 </Route>

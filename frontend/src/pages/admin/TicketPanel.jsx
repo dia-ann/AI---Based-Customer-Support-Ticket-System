@@ -1,10 +1,57 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useTickets } from "../../hooks/useTickets";
 import TicketTable from "../../components/agent/TicketTable";
 import api from "../../services/api";
 
-export default function AdminTicketPanel () {
-  const [filter, setFilter] = useState("unassigned");
+export default function AdminTicketPanel() {
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Load initial tab from URL query param ?tab=... or localStorage fallback
+  const initialFilter = useMemo(() => {
+    const urlTab = searchParams.get("tab");
+    if (urlTab && ["unassigned", "assigned"].includes(urlTab)) {
+      return urlTab;
+    }
+    const saved = localStorage.getItem("deskwise_admin_panel_tab");
+    if (saved && ["unassigned", "assigned"].includes(saved)) {
+      return saved;
+    }
+    return "unassigned";
+  }, []);
+
+  const [filter, setFilter] = useState(initialFilter);
+
+  const handleFilterChange = (mode) => {
+    setFilter(mode);
+    localStorage.setItem("deskwise_admin_panel_tab", mode);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("tab", mode);
+        return next;
+      },
+      { replace: true },
+    );
+  };
+
+  useEffect(() => {
+    const urlTab = searchParams.get("tab");
+    if (urlTab && ["unassigned", "assigned"].includes(urlTab)) {
+      setFilter(urlTab);
+      localStorage.setItem("deskwise_admin_panel_tab", urlTab);
+    } else if (!urlTab) {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("tab", filter);
+          return next;
+        },
+        { replace: true },
+      );
+    }
+  }, [searchParams]);
+
   // When filter is "unassigned", we ask for needs_triage.
   // When filter is "assigned", we fetch the general unresolved queue.
   const queryParams =
@@ -34,12 +81,10 @@ export default function AdminTicketPanel () {
   const handleAssignDepartment = async (ticketId, departmentId) => {
     if (!departmentId) return;
     try {
-      // FIX: Force classification_confidence to 1.0 to clear the "needs_triage" flag on the backend
       await api.put(`/tickets/${ticketId}`, {
         department_id: departmentId,
         classification_confidence: 1.0,
       });
-      // Audit log via internal note
       await api.post("/replies/", {
         ticket_id: ticketId,
         body: `Admin assigned ticket to department ID: ${departmentId} and cleared Triage flag.`,
@@ -52,7 +97,6 @@ export default function AdminTicketPanel () {
     }
   };
 
-  // When viewing assigned tickets, we don't necessarily want to show the manual assignment dropdown
   const renderActions =
     filter === "unassigned"
       ? (ticket) => (
@@ -74,7 +118,7 @@ export default function AdminTicketPanel () {
       : null;
 
   return (
-    <div className="min-h-screen w-full bg-surface-bg mx-auto max-w-5xl px-4 py-8">
+    <div className="min-h-screen w-full bg-[#0a0c10] p-4 sm:p-6 lg:p-8">
       <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold text-white">
@@ -84,32 +128,31 @@ export default function AdminTicketPanel () {
             Manage unrouted tickets or track assigned ones.
           </p>
         </div>
-
         {/* Toggle Buttons */}
         <div className="flex gap-2">
           <button
-            onClick={() => setFilter("unassigned")}
-            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+            onClick={() => handleFilterChange("unassigned")}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors cursor-pointer ${
               filter === "unassigned"
-                ? "bg-accent text-black"
-                : "bg-surface-hover text-gray-300 hover:bg-surface-border"
+                ? "bg-[#f2b705] text-black font-semibold shadow-md"
+                : "bg-[#181b26] border border-[#232632] text-gray-300 hover:text-white"
             }`}
           >
             Unassigned Tickets
           </button>
           <button
-            onClick={() => setFilter("assigned")}
-            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+            onClick={() => handleFilterChange("assigned")}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors cursor-pointer ${
               filter === "assigned"
-                ? "bg-accent text-black"
-                : "bg-surface-hover text-gray-300 hover:bg-surface-border"
+                ? "bg-[#f2b705] text-black font-semibold shadow-md"
+                : "bg-[#181b26] border border-[#232632] text-gray-300 hover:text-white"
             }`}
           >
             Assigned Tickets
           </button>
         </div>
       </div>
-      <div className="rounded-xl border border-surface-border bg-surface-card p-4">
+      <div className="rounded-2xl border border-[#232632] bg-[#141824] p-4 sm:p-6 shadow-xl">
         <TicketTable
           tickets={tickets}
           loading={loading}

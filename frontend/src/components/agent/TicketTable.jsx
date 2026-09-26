@@ -1,40 +1,23 @@
 import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import clsx from "clsx";
-import {
-  Search,
-  Filter,
-  CheckSquare,
-  UserCheck,
-  XCircle,
-  Loader2,
-} from "lucide-react";
+import { Search, Filter } from "lucide-react";
 import { STATUS_COLORS, SENTIMENT_COLORS } from "../../utils/constants";
 import { formatRelativeTime } from "../../utils/formatters";
 import SLAWatcher from "./SLAWatcher";
-import { useAuth } from "../../hooks/useAuth";
-import { useToast } from "../common/Toast";
-import * as ticketService from "../../services/ticketService";
 
 export default function TicketTable({
   tickets = [],
   loading,
   renderActions,
   departments = [],
-  onBulkUpdated,
+  extraFilter,
 }) {
-  const { user } = useAuth();
-  const { showToast } = useToast();
-
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
-
-  // Bulk Selection State (Feature 6)
-  const [selectedTicketIds, setSelectedTicketIds] = useState(new Set());
-  const [bulkActionLoading, setBulkActionLoading] = useState(false);
 
   // Debounce search input by 300ms
   useEffect(() => {
@@ -49,10 +32,10 @@ export default function TicketTable({
     [departments],
   );
 
-  // Client-side filtering (Feature 1)
+  // Client-side filtering with Escalations Pinned to Top
   const filteredTickets = useMemo(() => {
     if (!tickets) return [];
-    return tickets.filter((t) => {
+    const filtered = tickets.filter((t) => {
       const matchSearch =
         !debouncedSearch.trim() ||
         t.subject?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
@@ -60,80 +43,38 @@ export default function TicketTable({
           ?.toLowerCase()
           .includes(debouncedSearch.toLowerCase()) ||
         t.body_redacted?.toLowerCase().includes(debouncedSearch.toLowerCase());
-
       const matchStatus =
         statusFilter === "all" ||
         t.status?.toLowerCase() === statusFilter.toLowerCase();
-
       const matchPriority =
         priorityFilter === "all" ||
         t.priority?.toLowerCase() === priorityFilter.toLowerCase();
-
       return matchSearch && matchStatus && matchPriority;
     });
-  }, [tickets, debouncedSearch, statusFilter, priorityFilter]);
-
-  // Bulk selection helpers
-  const allFilteredSelected =
-    filteredTickets.length > 0 &&
-    filteredTickets.every((t) => selectedTicketIds.has(t.id));
-
-  function toggleSelectAll() {
-    if (allFilteredSelected) {
-      setSelectedTicketIds(new Set());
-    } else {
-      setSelectedTicketIds(new Set(filteredTickets.map((t) => t.id)));
-    }
-  }
-
-  function toggleSelectRow(id) {
-    setSelectedTicketIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+    // Pin active escalations to the top
+    return filtered.sort((a, b) => {
+      const aUrgent =
+        (a.priority === "high" || a.sentiment === "negative") &&
+        a.status !== "resolved" &&
+        a.status !== "closed";
+      const bUrgent =
+        (b.priority === "high" || b.sentiment === "negative") &&
+        b.status !== "resolved" &&
+        b.status !== "closed";
+      if (aUrgent && !bUrgent) return -1;
+      if (!aUrgent && bUrgent) return 1;
+      // Secondary sort: prioritize tickets closest to SLA resolution deadline
+      const aDue =
+        a.sla_due_at && a.status !== "resolved" && a.status !== "closed"
+          ? new Date(a.sla_due_at).getTime()
+          : Infinity;
+      const bDue =
+        b.sla_due_at && b.status !== "resolved" && b.status !== "closed"
+          ? new Date(b.sla_due_at).getTime()
+          : Infinity;
+      return aDue - bDue;
     });
-  }
-
-  // Bulk action: Assign to me
-  async function handleBulkAssignToMe() {
-    if (!user?.id || selectedTicketIds.size === 0) return;
-    setBulkActionLoading(true);
-    try {
-      const ids = Array.from(selectedTicketIds);
-      for (const id of ids) {
-        await ticketService.assignTicket(id, user.id);
-      }
-      showToast(`Assigned ${ids.length} ticket(s) to you`, "success");
-      setSelectedTicketIds(new Set());
-      onBulkUpdated?.();
-    } catch (err) {
-      showToast("Error updating some tickets", "error");
-    } finally {
-      setBulkActionLoading(false);
-    }
-  }
-
-  // Bulk action: Close selected
-  async function handleBulkClose() {
-    if (selectedTicketIds.size === 0) return;
-    if (!window.confirm(`Close ${selectedTicketIds.size} selected ticket(s)?`))
-      return;
-    setBulkActionLoading(true);
-    try {
-      const ids = Array.from(selectedTicketIds);
-      for (const id of ids) {
-        await ticketService.updateTicketStatus(id, "closed");
-      }
-      showToast(`Closed ${ids.length} ticket(s)`, "success");
-      setSelectedTicketIds(new Set());
-      onBulkUpdated?.();
-    } catch (err) {
-      showToast("Error closing some tickets", "error");
-    } finally {
-      setBulkActionLoading(false);
-    }
-  }
+  }, [tickets, debouncedSearch, statusFilter, priorityFilter]);
 
   if (loading)
     return (
@@ -142,9 +83,9 @@ export default function TicketTable({
 
   return (
     <div className="space-y-4">
-      {/* Search & Filter Bar (Feature 1) */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-12">
-        <div className="relative sm:col-span-6">
+      {/* Search & Filter Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
           <input
             type="text"
@@ -154,81 +95,38 @@ export default function TicketTable({
             className="w-full rounded-lg border border-surface-border bg-surface-bg py-2 pl-9 pr-3 text-xs text-gray-200 placeholder:text-gray-400 focus:border-accent focus:outline-none"
           />
         </div>
-
-        <div className="relative sm:col-span-3">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full appearance-none rounded-lg border border-surface-border bg-surface-bg py-2 pl-3 pr-8 text-xs text-gray-200 focus:border-accent focus:outline-none"
-          >
-            <option value="all">All Statuses</option>
-            <option value="open">Open</option>
-            <option value="in_progress">In Progress</option>
-            <option value="pending">Pending</option>
-            <option value="resolved">Resolved</option>
-            <option value="closed">Closed</option>
-          </select>
-          <Filter className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-500" />
-        </div>
-
-        <div className="relative sm:col-span-3">
-          <select
-            value={priorityFilter}
-            onChange={(e) => setPriorityFilter(e.target.value)}
-            className="w-full appearance-none rounded-lg border border-surface-border bg-surface-bg py-2 pl-3 pr-8 text-xs text-gray-200 focus:border-accent focus:outline-none"
-          >
-            <option value="all">All Priorities</option>
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-          </select>
-          <Filter className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-500" />
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <div className="relative min-w-[130px]">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full appearance-none rounded-lg border border-surface-border bg-surface-bg py-2 pl-3 pr-8 text-xs text-gray-200 focus:border-accent focus:outline-none"
+            >
+              <option value="all">All Statuses</option>
+              <option value="open">Open</option>
+              <option value="in_progress">In Progress</option>
+              <option value="pending">Pending</option>
+              <option value="resolved">Resolved</option>
+              <option value="closed">Closed</option>
+            </select>
+            <Filter className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-500" />
+          </div>
+          <div className="relative min-w-[130px]">
+            <select
+              value={priorityFilter}
+              onChange={(e) => setPriorityFilter(e.target.value)}
+              className="w-full appearance-none rounded-lg border border-surface-border bg-surface-bg py-2 pl-3 pr-8 text-xs text-gray-200 focus:border-accent focus:outline-none"
+            >
+              <option value="all">All Priorities</option>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+            <Filter className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-500" />
+          </div>
+          {extraFilter}
         </div>
       </div>
-
-      {/* Bulk Action Floating / Action Bar (Feature 6) */}
-      {selectedTicketIds.size > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-accent/40 bg-accent/10 px-4 py-2.5 backdrop-blur-sm animate-in fade-in">
-          <div className="flex items-center gap-2">
-            <CheckSquare className="h-4 w-4 text-accent" />
-            <span className="text-xs font-semibold text-white">
-              {selectedTicketIds.size} ticket
-              {selectedTicketIds.size > 1 ? "s" : ""} selected
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleBulkAssignToMe}
-              disabled={bulkActionLoading}
-              className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-bold text-black hover:bg-accent-hover transition-colors disabled:opacity-50"
-            >
-              {bulkActionLoading ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <UserCheck className="h-3.5 w-3.5" />
-              )}
-              <span>Assign to Me</span>
-            </button>
-
-            <button
-              onClick={handleBulkClose}
-              disabled={bulkActionLoading}
-              className="flex items-center gap-1.5 rounded-lg border border-red-500/40 bg-red-500/20 px-3 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-500/30 transition-colors disabled:opacity-50"
-            >
-              <XCircle className="h-3.5 w-3.5" />
-              <span>Close Selected</span>
-            </button>
-
-            <button
-              onClick={() => setSelectedTicketIds(new Set())}
-              className="text-xs text-gray-400 hover:text-white px-2 py-1"
-            >
-              Clear
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Table */}
       {!filteredTickets.length ? (
@@ -236,21 +134,10 @@ export default function TicketTable({
           No tickets matched your filter criteria.
         </p>
       ) : (
-        <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+        <div className="overflow-x-auto w-full">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="border-b border-surface-border text-xs uppercase text-gray-400 font-semibold">
               <tr>
-                {onBulkUpdated && (
-                  <th className="py-2.5 px-3 w-8">
-                    <input
-                      type="checkbox"
-                      checked={allFilteredSelected}
-                      onChange={toggleSelectAll}
-                      className="rounded border-surface-border bg-surface-bg text-accent focus:ring-0 cursor-pointer"
-                      aria-label="Select all tickets"
-                    />
-                  </th>
-                )}
                 <th className="py-2.5 px-3">Subject</th>
                 <th className="py-2.5 px-3">Customer</th>
                 <th className="py-2.5 px-3">Priority</th>
@@ -262,95 +149,82 @@ export default function TicketTable({
               </tr>
             </thead>
             <tbody>
-              {filteredTickets.map((t) => {
-                const isSelected = selectedTicketIds.has(t.id);
-                return (
-                  <tr
-                    key={t.id}
-                    className={`border-b border-surface-border last:border-0 hover:bg-surface-hover transition-colors ${
-                      isSelected ? "bg-accent/5" : ""
-                    }`}
-                  >
-                    {onBulkUpdated && (
-                      <td className="py-3 px-3 w-8">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleSelectRow(t.id)}
-                          className="rounded border-surface-border bg-surface-bg text-accent focus:ring-0 cursor-pointer"
-                          aria-label={`Select ticket ${t.id}`}
-                        />
-                      </td>
-                    )}
-                    <td className="py-3 px-3 whitespace-normal min-w-[200px] sm:min-w-[240px]">
+              {filteredTickets.map((t) => (
+                <tr
+                  key={t.id}
+                  className="border-b border-surface-border last:border-0 hover:bg-surface-hover transition-colors"
+                >
+                  <td className="py-3 px-3 whitespace-normal min-w-[200px] sm:min-w-[240px]">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <Link
                         to={`/agent/tickets/${t.id}`}
-                        className="font-medium text-accent hover:underline block"
+                        className="font-medium text-accent hover:underline"
                       >
                         {t.subject}
                       </Link>
-                      {t.classification_confidence !== null && (
-                        <div className="text-[11px] text-gray-400 mt-0.5">
-                          Department:{" "}
-                          {departmentNameById[t.department_id] || "General"}
-                          {t.classification_confidence !== undefined && (
-                            <span>
-                              {" "}
-                              ({(t.classification_confidence * 100).toFixed(0)}%
-                              confidence)
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                    <td className="py-3 px-3 text-xs text-gray-400">
-                      {t.customer_email || t.customer_name || "Customer"}
-                    </td>
-                    <td className="py-3 px-3 text-xs capitalize text-gray-300">
-                      {t.priority || "Normal"}
-                    </td>
-                    {/*
-                      New: Sentiment cell.
-                      Tickets created before this feature shipped will have
-                      sentiment === null, so we fall back to a plain dash
-                      instead of rendering an empty/undefined badge.
-                    */}
-                    <td className="py-3 px-3">
-                      {t.sentiment ? (
-                        <span
-                          className={clsx(
-                            "rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize",
-                            SENTIMENT_COLORS[t.sentiment],
-                          )}
-                        >
-                          {t.sentiment}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-gray-500">—</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-3">
+                      {(t.priority === "high" || t.sentiment === "negative") &&
+                        t.status !== "resolved" &&
+                        t.status !== "closed" && (
+                          <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium bg-red-500/10 text-red-400 border border-red-500/20">
+                            Escalated
+                          </span>
+                        )}
+                    </div>
+                    {t.classification_confidence !== null && (
+                      <div className="text-[11px] text-gray-400 mt-0.5">
+                        Department:{" "}
+                        {departmentNameById[t.department_id] || "General"}
+                        {t.classification_confidence !== undefined && (
+                          <span>
+                            {" "}
+                            ({(t.classification_confidence * 100).toFixed(0)}%
+                            confidence)
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                  <td className="py-3 px-3 text-xs text-gray-400">
+                    {t.customer_email || t.customer_name || "Customer"}
+                  </td>
+                  <td className="py-3 px-3 text-xs capitalize text-gray-300">
+                    {t.priority || "Normal"}
+                  </td>
+                  <td className="py-3 px-3">
+                    {t.sentiment ? (
                       <span
                         className={clsx(
                           "rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize",
-                          STATUS_COLORS[t.status],
+                          SENTIMENT_COLORS[t.sentiment],
                         )}
                       >
-                        {t.status?.replace("_", " ")}
+                        {t.sentiment}
                       </span>
-                    </td>
-                    <td className="py-3 px-3">
-                      <SLAWatcher dueAt={t.sla_due_at} />
-                    </td>
-                    <td className="py-3 px-3 text-xs text-gray-500">
-                      {formatRelativeTime(t.created_at)}
-                    </td>
-                    {renderActions && (
-                      <td className="py-3 px-3">{renderActions(t)}</td>
+                    ) : (
+                      <span className="text-xs text-gray-500">—</span>
                     )}
-                  </tr>
-                );
-              })}
+                  </td>
+                  <td className="py-3 px-3">
+                    <span
+                      className={clsx(
+                        "rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize",
+                        STATUS_COLORS[t.status],
+                      )}
+                    >
+                      {t.status?.replace("_", " ")}
+                    </span>
+                  </td>
+                  <td className="py-3 px-3">
+                    <SLAWatcher dueAt={t.sla_due_at} />
+                  </td>
+                  <td className="py-3 px-3 text-xs text-gray-500">
+                    {formatRelativeTime(t.created_at)}
+                  </td>
+                  {renderActions && (
+                    <td className="py-3 px-3">{renderActions(t)}</td>
+                  )}
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
