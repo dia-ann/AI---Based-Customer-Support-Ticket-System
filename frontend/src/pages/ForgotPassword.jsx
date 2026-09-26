@@ -18,6 +18,20 @@ export default function ForgotPassword() {
       setSubmitted(true);
       showToast("Verification email sent!", "success");
     } catch (err) {
+      if (err.response?.status === 429) {
+        const retryAfter =
+          Number(err.response?.data?.retry_after) ||
+          Number(err.response?.headers?.["retry-after"]) ||
+          60;
+
+        showToast(
+          "Too many password reset requests. Please wait before trying again.",
+          "warning",
+          { countdown: retryAfter, title: "Rate Limit Exceeded" },
+        );
+        return;
+      }
+
       const msg =
         err.response?.data?.detail?.[0]?.msg ||
         err.response?.data?.detail ||

@@ -17,9 +17,9 @@ myREADME.md
 requirements copy.txt
 .vite
 AGENT.md
-AGENTS.md
+BRAIN.md
 uploads/
 backend/uploads/
 backend/app/ai/model_artifacts/
 *.safetensors
-
+index.py

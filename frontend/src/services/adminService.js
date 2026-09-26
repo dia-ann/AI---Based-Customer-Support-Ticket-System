@@ -5,6 +5,22 @@ export async function getUsers(params = {}) {
   return data;
 }
 
+export async function archiveUser(userId) {
+  const { data } = await api.post(`/users/${userId}/archive`);
+  return data;
+}
+
+export async function unarchiveUser(userId) {
+  const { data } = await api.post(`/users/${userId}/unarchive`);
+  return data;
+}
+
+export async function toggleUserActive(userId, isActive) {
+  const { data } = await api.put(`/users/${userId}`, { is_active: isActive });
+  return data;
+}
+
+
 export async function deleteUser(userId) {
   await api.delete(`/users/${userId}`);
 }
@@ -58,5 +74,16 @@ export async function inviteAgent(email, departmentId, firstName, lastName, agen
         agent_tier: agentTier,
       };
   const { data } = await api.post("/users/invite-agent", payload);
+  return data;
+}
+
+// Manager Team & Availability methods
+export async function getDepartmentTeam() {
+  const { data } = await api.get("/users/department/team");
+  return data;
+}
+
+export async function updateAgentAvailability(userId, isActive) {
+  const { data } = await api.patch(`/users/${userId}/availability`, { is_active: isActive });
   return data;
 }

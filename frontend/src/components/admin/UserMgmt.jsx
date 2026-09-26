@@ -70,20 +70,29 @@ export default function UserMgmt() {
   }
 
   async function handleAssignmentChange(userId, value) {
-    const selectedDepartmentId = value.replace("agent:", "");
-    const selectedDepartment = departmentsById[selectedDepartmentId];
-    const isAdministration =
-      selectedDepartment?.name?.trim().toLowerCase() === "administration";
-    const payload = {
-      role: isAdministration ? "admin" : "agent",
-      department_id: selectedDepartmentId,
-    };
+    let payload;
+    if (value === "admin") {
+      payload = {
+        role: "admin",
+        department_id: null,
+      };
+    } else {
+      const selectedDepartmentId = value.replace("agent:", "");
+      payload = {
+        role: "agent",
+        department_id: selectedDepartmentId,
+      };
+    }
+
     try {
       const updatedUser = await adminService.updateUserRole(userId, payload);
       setUsers((prev) => prev.map((u) => (u.id === userId ? updatedUser : u)));
       showToast("Assignment updated", "success");
-    } catch {
-      showToast("Failed to update assignment", "error");
+    } catch (e) {
+      showToast(
+        e.response?.data?.detail || "Failed to update assignment",
+        "error",
+      );
     }
   }
 
@@ -164,8 +173,8 @@ export default function UserMgmt() {
                   onChange={(e) => handleTierChange(u.id, e.target.value)}
                   className="rounded-lg border border-surface-border bg-surface-bg px-2.5 py-2 text-xs text-gray-300 focus:border-accent focus:outline-none"
                 >
-                  <option value={1}>Regular</option>
-                  <option value={2}>Super Agent</option>
+                  <option value={1}>Regular Agent</option>
+                  <option value={2}>Manager</option>
                 </select>
               ) : (
                 <span className="text-xs text-gray-500 text-center">—</span>

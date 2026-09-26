@@ -1,4 +1,3 @@
-// frontend/src/pages/agent/Analytics.jsx
 import { useState, useEffect } from "react";
 import {
   Download,
@@ -10,17 +9,31 @@ import {
   TrendingUp,
   RefreshCw,
   Calendar,
+  Users,
+  Building2,
+  UserCheck,
 } from "lucide-react";
 import * as ticketService from "../../services/ticketService";
+import * as adminService from "../../services/adminService";
+import { useAuth } from "../../hooks/useAuth";
 import { useToast } from "../../components/common/Toast";
 import { formatRelativeTime } from "../../utils/formatters";
 
 export default function AgentAnalytics() {
+  const { user } = useAuth();
+  const isManager =
+    user?.agent_tier === 2 ||
+    user?.agent_tier === "2" ||
+    user?.agent_tier === "manager";
+
   const { showToast } = useToast();
+  const [viewMode, setViewMode] = useState(
+    isManager ? "department" : "personal",
+  );
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [dateRange, setDateRange] = useState("custom"); // "week" | "month" | "custom"
+  const [dateRange, setDateRange] = useState("custom");
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
     d.setFullYear(d.getFullYear() - 1);
@@ -32,28 +45,31 @@ export default function AgentAnalytics() {
 
   useEffect(() => {
     loadAnalytics(true);
-    // Silent auto-refresh polling every 12 seconds
     const interval = setInterval(() => {
       loadAnalytics(false);
     }, 12000);
     return () => clearInterval(interval);
-  }, [dateRange, startDate, endDate]);
+  }, [viewMode, dateRange, startDate, endDate]);
 
   async function loadAnalytics(isInitial = false) {
     if (isInitial) setLoading(true);
     else setIsRefreshing(true);
     try {
-      const params = {
-        date_range: dateRange,
-      };
+      const params = { date_range: dateRange };
       if (dateRange === "custom") {
         params.start_date = startDate;
         params.end_date = endDate;
       }
-      const res = await ticketService.getAgentAnalytics(params);
-      setData(res);
+
+      if (viewMode === "department") {
+        const res = await adminService.getAnalyticsOverview(params);
+        setData(res);
+      } else {
+        const res = await ticketService.getAgentAnalytics(params);
+        setData(res);
+      }
     } catch (err) {
-      console.error("Failed to load agent analytics", err);
+      console.error("Failed to load analytics", err);
     } finally {
       if (isInitial) setLoading(false);
       else setIsRefreshing(false);
@@ -180,14 +196,46 @@ export default function AgentAnalytics() {
 
   return (
     <div className="min-h-screen bg-[#0a0c10] text-white p-4 sm:p-6 lg:p-8">
+      {/* Manager View Switcher */}
+      {isManager && (
+        <div className="mb-6 flex items-center gap-2 border-b border-[#232632] pb-4">
+          <button
+            onClick={() => setViewMode("department")}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-all ${
+              viewMode === "department"
+                ? "bg-[#fbbf24] text-black shadow-md"
+                : "border border-[#232632] bg-[#141824] text-gray-300 hover:text-white"
+            }`}
+          >
+            <Building2 className="h-4 w-4" />
+            <span>Department Overview</span>
+          </button>
+          <button
+            onClick={() => setViewMode("personal")}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-all ${
+              viewMode === "personal"
+                ? "bg-[#fbbf24] text-black shadow-md"
+                : "border border-[#232632] bg-[#141824] text-gray-300 hover:text-white"
+            }`}
+          >
+            <UserCheck className="h-4 w-4" />
+            <span>My Personal Metrics</span>
+          </button>
+        </div>
+      )}
+
       {/* Header & Controls */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-[22px] font-bold capitalize">
-            Performance Analytics
+            {viewMode === "department"
+              ? "Department Performance Analytics"
+              : "Performance Analytics"}
           </h1>
           <p className="text-[13px] text-[#9ca3af] mt-0.5">
-            Individual metrics and resolution trends for {data.agent_email}
+            {viewMode === "department"
+              ? `Department metrics and resolution trends for ${data?.department_name || user?.department_name || "Department"}`
+              : `Individual metrics and resolution trends for ${data?.agent_email || user?.email}`}
           </p>
         </div>
 
@@ -527,6 +575,81 @@ export default function AgentAnalytics() {
           </div>
         )}
       </div>
+      {/* Department Team Performance Table (Manager Only) */}
+      {viewMode === "department" && (
+        <div className="mt-8 rounded-2xl border border-[#232632] bg-[#141824] p-6 shadow-xl">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-[#fbbf24]" />
+              <h3 className="font-semibold text-[15px] text-white">
+                Team Members Performance
+              </h3>
+            </div>
+            <span className="text-xs text-gray-400">
+              {data.agent_performance?.length || 0} agents active
+            </span>
+          </div>
+
+          {!data.agent_performance || data.agent_performance.length === 0 ? (
+            <p className="py-6 text-center text-xs text-gray-500">
+              No performance activity recorded for this date range.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-[#232632] text-gray-400">
+                    <th className="pb-3 font-medium">Agent</th>
+                    <th className="pb-3 font-medium text-center">
+                      Unresolved Tickets
+                    </th>
+                    <th className="pb-3 font-medium text-center">
+                      Resolved / Closed
+                    </th>
+                    <th className="pb-3 font-medium text-center">
+                      Customer Rating
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#232632]">
+                  {data.agent_performance.map((agent) => (
+                    <tr
+                      key={agent.id}
+                      className="hover:bg-white/[0.02] transition-colors"
+                    >
+                      <td className="py-3 font-medium text-gray-200">
+                        {agent.name}
+                        <span className="block text-[11px] text-gray-500 font-normal">
+                          {agent.email}
+                        </span>
+                      </td>
+                      <td className="py-3 text-center">
+                        <span className="rounded-full bg-yellow-500/10 border border-yellow-500/20 px-2 py-0.5 text-[11px] font-semibold text-yellow-400">
+                          {agent.unresolved_count}
+                        </span>
+                      </td>
+                      <td className="py-3 text-center">
+                        <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[11px] font-semibold text-emerald-400">
+                          {agent.closed_count}
+                        </span>
+                      </td>
+                      <td className="py-3 text-center font-semibold text-gray-300">
+                        {agent.rating ? (
+                          <span className="inline-flex items-center gap-1 text-[#fbbf24]">
+                            ★ {agent.rating}
+                          </span>
+                        ) : (
+                          <span className="text-gray-500">N/A</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

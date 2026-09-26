@@ -119,7 +119,7 @@ export default function AgentInvite({ departments = [], onInvited }) {
           className="bg-[#0a0c10] border border-[#232632] rounded-[8px] px-3 py-2 text-[12px] flex-1 min-w-[130px] outline-none focus:border-[#fbbf24]"
         >
           <option value={1}>Regular Agent</option>
-          <option value={2}>Super Agent</option>
+          <option value={2}>Manager</option>
         </select>
         <button
           type="submit"
@@ -147,7 +147,7 @@ export default function AgentInvite({ departments = [], onInvited }) {
           <p className="mt-1 text-[#9ca3af]">
             {result.user.first_name} {result.user.last_name} (
             {result.user.email}) · {result.department_name} ·{" "}
-            {result.user.agent_tier === 2 ? "Super Agent" : "Regular Agent"}
+            {result.user.agent_tier === 2 ? "Manager" : "Regular Agent"}
             {result.reinvited ? " · re-invited (password rotated)" : ""}
           </p>
           {result.temporary_password && (

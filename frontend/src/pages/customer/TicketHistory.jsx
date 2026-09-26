@@ -54,7 +54,7 @@ export default function TicketHistory() {
   useEffect(() => {
     try {
       const stored = JSON.parse(
-        localStorage.getItem("deskwise_ticket_ratings") || "{}"
+        localStorage.getItem("deskwise_ticket_ratings") || "{}",
       );
       setRatings(stored);
     } catch {
@@ -74,7 +74,7 @@ export default function TicketHistory() {
   const resolvedTickets = useMemo(() => {
     if (!tickets) return [];
     return tickets.filter(
-      (t) => t.status === "resolved" || t.status === "closed"
+      (t) => t.status === "resolved" || t.status === "closed",
     );
   }, [tickets]);
 
@@ -84,7 +84,9 @@ export default function TicketHistory() {
       const matchSearch =
         !debouncedSearch.trim() ||
         t.subject?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-        t.body_redacted?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        t.body_redacted
+          ?.toLowerCase()
+          .includes(debouncedSearch.toLowerCase()) ||
         t.id?.toLowerCase().includes(debouncedSearch.toLowerCase());
 
       const matchStatus =
@@ -105,7 +107,7 @@ export default function TicketHistory() {
   if (loading) return <Loader fullScreen />;
 
   return (
-    <div className="min-h-screen w-full bg-[#0a0c10] mx-auto max-w-5xl px-4 sm:px-6 py-8">
+    <div className="min-h-screen w-full bg-[#0a0c10] max-w-6xl mx-auto p-4 sm:p-6 lg:p-8">
       {/* Header */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -168,7 +170,8 @@ export default function TicketHistory() {
         {(debouncedSearch || statusFilter !== "all") && (
           <div className="mt-3 flex items-center justify-between border-t border-[#232838] pt-2 text-xs text-gray-400">
             <span>
-              Showing {filteredTickets.length} of {resolvedTickets.length} resolved tickets
+              Showing {filteredTickets.length} of {resolvedTickets.length}{" "}
+              resolved tickets
             </span>
             <button
               type="button"
@@ -233,7 +236,7 @@ export default function TicketHistory() {
                     <span
                       className={clsx(
                         "rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider",
-                        getStatusBadgeClass(ticket.status)
+                        getStatusBadgeClass(ticket.status),
                       )}
                     >
                       {ticket.status?.replace("_", " ")}
@@ -243,7 +246,7 @@ export default function TicketHistory() {
                       <span
                         className={clsx(
                           "rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase",
-                          getPriorityBadgeClass(ticket.priority)
+                          getPriorityBadgeClass(ticket.priority),
                         )}
                       >
                         {ticket.priority}
@@ -274,11 +277,10 @@ export default function TicketHistory() {
                     <span className="text-[11px] text-gray-400 flex items-center gap-1">
                       <Clock className="h-3 w-3 text-gray-500" />
                       {formatRelativeTime(
-                        ticket.updated_at || ticket.created_at
+                        ticket.updated_at || ticket.created_at,
                       )}
                     </span>
                   </div>
-
                   <div className="flex items-center gap-2">
                     {userRating ? (
                       <span className="inline-flex items-center gap-1 rounded-xl bg-amber-400/10 border border-amber-400/30 px-2.5 py-1 text-xs font-semibold text-amber-300">

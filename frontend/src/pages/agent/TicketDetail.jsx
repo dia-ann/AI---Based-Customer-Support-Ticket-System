@@ -33,6 +33,8 @@ import { getAttachmentUrl, isImageAttachment } from "../../utils/attachments";
 import clsx from "clsx";
 import { STATUS_COLORS } from "../../utils/constants";
 import { useReplyRealtime } from "../../hooks/useReplyRealtime";
+import { getDepartmentTeam } from "../../services/adminService";
+import api from "../../services/api";
 
 export default function TicketDetail() {
   const { ticketId } = useParams();
@@ -42,6 +44,51 @@ export default function TicketDetail() {
   const [replies, setReplies] = useState([]);
   const [repliesLoading, setRepliesLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(null);
+  const isManager =
+    user?.agent_tier === 2 ||
+    user?.agent_tier === "2" ||
+    user?.agent_tier === "manager";
+
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [delegating, setDelegating] = useState(false);
+
+  useEffect(() => {
+    if (isManager || isAdmin) {
+      getDepartmentTeam()
+        .then((members) => setTeamMembers(members || []))
+        .catch((err) => console.error("Failed to load department team", err));
+    }
+  }, [isManager, isAdmin]);
+
+  async function handleTakeTicket() {
+    try {
+      await api.put(`/tickets/${ticketId}`, { assigned_agent_id: user.id });
+      await api.post("/replies/", {
+        ticket_id: ticketId,
+        body: `Agent ${user.email} assigned ticket to themselves.`,
+        is_internal_note: true,
+      });
+      refetch();
+    } catch (err) {
+      alert(err.response?.data?.detail || "Failed to claim ticket");
+    }
+  }
+
+  async function handleDelegateDetail(targetAgentId) {
+    if (!targetAgentId) return;
+    setDelegating(true);
+    try {
+      await api.put(`/tickets/${ticketId}`, {
+        assigned_agent_id: targetAgentId,
+      });
+      refetch();
+      loadReplies();
+    } catch (err) {
+      alert(err.response?.data?.detail || "Failed to delegate ticket");
+    } finally {
+      setDelegating(false);
+    }
+  }
 
   useEffect(() => {
     if (!ticketId) return;
@@ -96,7 +143,7 @@ export default function TicketDetail() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-surface-bg mx-auto max-w-4xl px-4 py-8">
+    <div className="min-h-screen w-full bg-[#0a0c10] max-w-6xl mx-auto p-4 sm:p-6 lg:p-8">
       {/* Back button */}
       <button
         type="button"
@@ -126,6 +173,56 @@ export default function TicketDetail() {
             Ticket #{ticket.id} • Customer:{" "}
             {ticket.customer_name || ticket.customer_email || "Customer"}
           </p>
+          {/* Controls: Assignee Badge, Take Ticket, and Manager Delegate (#5) */}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-lg border border-surface-border bg-surface-bg px-2.5 py-1 text-xs text-gray-300">
+              <User className="h-3.5 w-3.5 text-accent" />
+              <span>
+                Assignee:{" "}
+                <strong className="text-white">
+                  {ticket.assigned_agent_id
+                    ? teamMembers.find((m) => m.id === ticket.assigned_agent_id)
+                        ?.first_name ||
+                      (ticket.assigned_agent_id === user?.id
+                        ? "You"
+                        : "Assigned")
+                    : "Unassigned"}
+                </strong>
+              </span>
+            </span>
+            {!ticket.assigned_agent_id && (
+              <button
+                type="button"
+                onClick={handleTakeTicket}
+                className="rounded-lg border border-accent/40 bg-accent/20 px-3 py-1 text-xs font-semibold text-accent hover:bg-accent/30 transition-colors cursor-pointer"
+              >
+                Take Ticket
+              </button>
+            )}
+            {(isManager || isAdmin) &&
+              ticket.status !== "resolved" &&
+              ticket.status !== "closed" && (
+                <select
+                  disabled={delegating}
+                  value={ticket.assigned_agent_id || ""}
+                  onChange={(e) => handleDelegateDetail(e.target.value)}
+                  className="rounded-lg border border-surface-border bg-surface-card px-2.5 py-1 text-xs text-gray-300 focus:border-accent focus:outline-none"
+                >
+                  <option value="" disabled>
+                    {delegating ? "Delegating..." : "Delegate to Agent..."}
+                  </option>
+                  {teamMembers
+                    .filter((m) => m.is_active)
+                    .map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.id === user.id
+                          ? "Assign to Me (Manager)"
+                          : `${m.first_name || m.email}`}
+                      </option>
+                    ))}
+                </select>
+              )}
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2.5 sm:gap-4 shrink-0">
           <SLAWatcher dueAt={ticket.sla_due_at} />

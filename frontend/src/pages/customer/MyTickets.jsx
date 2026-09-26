@@ -50,7 +50,7 @@ export default function MyTickets() {
   if (loading) return <Loader fullScreen />;
 
   return (
-    <div className="min-h-screen w-full bg-surface-bg mx-auto max-w-4xl px-4 py-8">
+    <div className="min-h-screen w-full bg-[#0a0c10] max-w-6xl mx-auto p-4 sm:p-6 lg:p-8">
       {/* Header & New Ticket / FAQ Buttons */}
       {/* Header & New Ticket / FAQ Buttons */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
